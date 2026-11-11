@@ -104,7 +104,7 @@ fun PermissionsScreen(onBack: () -> Unit) {
 
             PermissionRow(
                 title = "Microphone",
-                detail = "Awaaz sunne ke liye (Phase 2).",
+                detail = "NOVA ko tumhari awaaz sunne ke liye.",
                 status = if (micGranted) "Allowed" else "Not allowed",
                 good = micGranted,
                 actionLabel = if (micGranted) null else "Allow",

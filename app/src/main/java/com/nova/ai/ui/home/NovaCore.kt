@@ -4,6 +4,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -23,19 +24,32 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
 import com.nova.ai.ui.theme.NovaColors
+import com.nova.ai.voice.NovaState
 
 /**
  * Phase 1 placeholder for NOVA's avatar: a living "core" made of rings.
  * The real anime avatar (2D first, 3D later) replaces this in Phase 4.
  */
 @Composable
-fun NovaCore(listening: Boolean, modifier: Modifier = Modifier) {
+fun NovaCore(state: NovaState, level: Float, modifier: Modifier = Modifier) {
+    val smoothLevel by animateFloatAsState(
+        targetValue = level,
+        animationSpec = tween(durationMillis = 120),
+        label = "level"
+    )
     val transition = rememberInfiniteTransition(label = "core")
     val spin by transition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            tween(durationMillis = if (listening) 5000 else 16000, easing = LinearEasing)
+            tween(
+                durationMillis = when (state) {
+                    NovaState.Idle -> 16000
+                    NovaState.Listening -> 5000
+                    NovaState.Speaking -> 3500
+                },
+                easing = LinearEasing
+            )
         ),
         label = "spin"
     )
@@ -52,7 +66,12 @@ fun NovaCore(listening: Boolean, modifier: Modifier = Modifier) {
     Canvas(modifier.aspectRatio(1f)) {
         val c = center
         val r = size.minDimension / 2f
-        val accent = if (listening) NovaColors.Cyan else NovaColors.Violet
+        val accent = when (state) {
+            NovaState.Idle -> NovaColors.Violet
+            NovaState.Listening -> NovaColors.Cyan
+            NovaState.Speaking -> NovaColors.Lavender
+        }
+        val boost = if (state == NovaState.Listening) smoothLevel * 0.18f else 0f
 
         drawCircle(
             brush = Brush.radialGradient(
@@ -66,7 +85,7 @@ fun NovaCore(listening: Boolean, modifier: Modifier = Modifier) {
 
         drawCircle(
             color = NovaColors.Violet.copy(alpha = 0.55f),
-            radius = r * 0.72f * pulse,
+            radius = r * 0.72f * (pulse + boost),
             center = c,
             style = Stroke(width = 2.dp.toPx())
         )

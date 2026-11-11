@@ -36,13 +36,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nova.ai.ui.theme.NovaColors
+import com.nova.ai.voice.NovaState
 
 @Composable
 fun HomeScreen(
-    listening: Boolean,
+    state: NovaState,
+    level: Float,
+    heard: String,
     message: String,
     onMic: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -76,7 +80,7 @@ fun HomeScreen(
             Modifier.weight(1f).fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
-            NovaCore(listening = listening, modifier = Modifier.fillMaxWidth(0.85f))
+            NovaCore(state = state, level = level, modifier = Modifier.fillMaxWidth(0.85f))
         }
 
         Box(
@@ -87,7 +91,12 @@ fun HomeScreen(
                 .border(1.dp, NovaColors.PanelEdge, RoundedCornerShape(20.dp))
                 .padding(16.dp)
         ) {
-            Text(message, color = NovaColors.Text, fontSize = 15.sp, lineHeight = 22.sp)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (heard.isNotBlank()) {
+                    Text("Tum: $heard", color = NovaColors.Muted, fontSize = 14.sp, lineHeight = 20.sp)
+                }
+                Text(message, color = NovaColors.Text, fontSize = 15.sp, lineHeight = 22.sp)
+            }
         }
 
         Spacer(Modifier.height(14.dp))
@@ -96,22 +105,33 @@ fun HomeScreen(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            PhaseChip("Voice", "Phase 2", Modifier.weight(1f))
-            PhaseChip("Brain", "Phase 3", Modifier.weight(1f))
-            PhaseChip("Control", "Phase 5", Modifier.weight(1f))
+            PhaseChip("Voice", "Ready", NovaColors.Good, Modifier.weight(1f))
+            PhaseChip("Brain", "Phase 3", NovaColors.Muted, Modifier.weight(1f))
+            PhaseChip("Control", "Phase 5", NovaColors.Muted, Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(20.dp))
 
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            MicButton(active = listening, onClick = onMic)
+            MicButton(active = state == NovaState.Listening, onClick = onMic)
         }
         Spacer(Modifier.height(8.dp))
+        Text(
+            when (state) {
+                NovaState.Idle -> "Tap karke bolo"
+                NovaState.Listening -> "Sun rahi hoon… dubara tap karo to ruk jaungi"
+                NovaState.Speaking -> "Bol rahi hoon… tap karke beech mein roko"
+            },
+            color = NovaColors.Muted,
+            fontSize = 12.sp,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
     }
 }
 
 @Composable
-private fun PhaseChip(name: String, phase: String, modifier: Modifier = Modifier) {
+private fun PhaseChip(name: String, phase: String, phaseColor: Color, modifier: Modifier = Modifier) {
     Column(
         modifier
             .clip(RoundedCornerShape(14.dp))
@@ -120,7 +140,7 @@ private fun PhaseChip(name: String, phase: String, modifier: Modifier = Modifier
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(name, color = NovaColors.Text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-        Text(phase, color = NovaColors.Muted, fontSize = 12.sp)
+        Text(phase, color = phaseColor, fontSize = 12.sp)
     }
 }
 

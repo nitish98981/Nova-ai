@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +22,7 @@ import com.nova.ai.ui.home.HomeScreen
 import com.nova.ai.ui.permissions.PermissionsScreen
 import com.nova.ai.ui.settings.SettingsScreen
 import com.nova.ai.ui.theme.NovaColors
+import com.nova.ai.voice.VoiceController
 
 private enum class Screen { Home, Settings, Permissions }
 
@@ -28,18 +30,19 @@ private enum class Screen { Home, Settings, Permissions }
 fun NovaApp(store: SettingsStore) {
     val context = LocalContext.current
     var screen by remember { mutableStateOf(Screen.Home) }
-    var previewListening by remember { mutableStateOf(false) }
-    var message by remember {
-        mutableStateOf("Hey! Main NOVA hoon. Abhi meri neev ban rahi hai — voice aur brain aage ke phases mein aayenge.")
+    val voice = remember { VoiceController(context, store) }
+
+    DisposableEffect(Unit) {
+        onDispose { voice.release() }
     }
 
     val micLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        message = if (granted) {
-            "Mic permission mil gayi. Voice recognition Phase 2 mein add hogi."
+        if (granted) {
+            voice.toggle()
         } else {
-            "Mic permission nahi mili. Permissions screen se baad mein de sakte ho."
+            voice.showNotice("Mic permission nahi mili. Permissions screen se baad mein de sakte ho.")
         }
     }
 
@@ -48,27 +51,20 @@ fun NovaApp(store: SettingsStore) {
     Box(Modifier.fillMaxSize().background(NovaColors.Void)) {
         when (screen) {
             Screen.Home -> HomeScreen(
-                listening = previewListening,
-                message = message,
+                state = voice.state,
+                level = voice.level,
+                heard = voice.heard,
+                message = voice.message,
                 onMic = {
                     val granted = ContextCompat.checkSelfPermission(
                         context, Manifest.permission.RECORD_AUDIO
                     ) == PackageManager.PERMISSION_GRANTED
-                    if (granted) {
-                        previewListening = !previewListening
-                        message = if (previewListening) {
-                            "Ye sirf animation preview hai. Asli sunna Phase 2 mein shuru hoga."
-                        } else {
-                            "Preview band. Phase 2 mein asli voice aayegi."
-                        }
-                    } else {
-                        micLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                    }
+                    if (granted) voice.toggle() else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 },
                 onOpenSettings = { screen = Screen.Settings },
                 onOpenPermissions = { screen = Screen.Permissions }
             )
-            Screen.Settings -> SettingsScreen(store) { screen = Screen.Home }
+            Screen.Settings -> SettingsScreen(store, voice) { screen = Screen.Home }
             Screen.Permissions -> PermissionsScreen { screen = Screen.Home }
         }
     }

@@ -34,6 +34,8 @@ class SettingsStore(context: Context) {
     private var _pitch by mutableFloatStateOf(prefs.getFloat("pitch", 1.1f))
     private var _geminiKey by mutableStateOf(prefs.getString("gemini_key", "") ?: "")
     private var _openAiKey by mutableStateOf(prefs.getString("openai_key", "") ?: "")
+    private var _voiceEn by mutableStateOf(prefs.getString("voice_en", "") ?: "")
+    private var _voiceHi by mutableStateOf(prefs.getString("voice_hi", "") ?: "")
 
     var language: VoiceLanguage
         get() = _language
@@ -54,4 +56,14 @@ class SettingsStore(context: Context) {
     var openAiKey: String
         get() = _openAiKey
         set(v) { _openAiKey = v; prefs.edit().putString("openai_key", v).apply() }
+
+    /** Name of the chosen English/Hinglish TTS voice ("" = phone default). */
+    var voiceEn: String
+        get() = _voiceEn
+        set(v) { _voiceEn = v; prefs.edit().putString("voice_en", v).apply() }
+
+    /** Name of the chosen Hindi TTS voice ("" = phone default). */
+    var voiceHi: String
+        get() = _voiceHi
+        set(v) { _voiceHi = v; prefs.edit().putString("voice_hi", v).apply() }
 }

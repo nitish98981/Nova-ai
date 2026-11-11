@@ -34,9 +34,12 @@ import androidx.compose.ui.unit.sp
 import com.nova.ai.data.SettingsStore
 import com.nova.ai.data.VoiceLanguage
 import com.nova.ai.ui.theme.NovaColors
+import com.nova.ai.voice.VoiceController
+import android.speech.tts.Voice
+import androidx.compose.material3.TextButton
 
 @Composable
-fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
+fun SettingsScreen(store: SettingsStore, voice: VoiceController, onBack: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
@@ -90,7 +93,26 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
                 onValueChange = { store.pitch = (Math.round(it * 10) / 10f) },
                 valueRange = 0.5f..2f
             )
-            Hint("Speed aur pitch Phase 2 mein NOVA ki awaaz par lagengi.")
+            TextButton(onClick = { voice.preview("en") }) {
+                Text("Test awaaz sunao", color = NovaColors.Cyan)
+            }
+
+            Spacer(Modifier.height(8.dp))
+            SectionTitle("English / Hinglish voice")
+            Hint("Android voice ka gender nahi batata, isliye har voice tap karke sun lo aur jo sabse achhi lage wahi chuno.")
+            VoicePicker(
+                options = voice.voicesFor("en"),
+                selected = store.voiceEn,
+                onPick = { store.voiceEn = it; voice.preview("en") }
+            )
+
+            Spacer(Modifier.height(8.dp))
+            SectionTitle("Hindi voice")
+            VoicePicker(
+                options = voice.voicesFor("hi"),
+                selected = store.voiceHi,
+                onPick = { store.voiceHi = it; voice.preview("hi") }
+            )
 
             Spacer(Modifier.height(8.dp))
             SectionTitle("AI keys")
@@ -122,5 +144,36 @@ private fun KeyField(label: String, value: String, onChange: (String) -> Unit) {
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun VoicePicker(options: List<Voice>, selected: String, onPick: (String) -> Unit) {
+    if (options.isEmpty()) {
+        Hint("Koi voice nahi mili. Phone Settings → Text-to-speech se Google voice data download karo.")
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        VoiceRow("Phone ki default voice", selected.isEmpty()) { onPick("") }
+        options.take(10).forEachIndexed { index, v ->
+            val online = if (v.isNetworkConnectionRequired) " (online)" else ""
+            VoiceRow("Voice ${index + 1}: ${v.locale.displayName}$online", selected == v.name) { onPick(v.name) }
+        }
+    }
+}
+
+@Composable
+private fun VoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        color = if (selected) NovaColors.Void else NovaColors.Text,
+        fontSize = 14.sp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) NovaColors.Lavender else NovaColors.Panel)
+            .border(1.dp, NovaColors.PanelEdge, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 11.dp)
     )
 }
