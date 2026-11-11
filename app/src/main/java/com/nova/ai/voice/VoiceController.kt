@@ -138,6 +138,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
         state = NovaState.Listening
         message = "Sun rahi hoon…"
         source = ""
+        emotion = "neutral"
         r.startListening(intent)
     }
 

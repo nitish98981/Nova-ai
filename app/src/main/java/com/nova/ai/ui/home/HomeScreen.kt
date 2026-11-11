@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nova.ai.ui.avatar.NovaAvatar
 import com.nova.ai.ui.theme.NovaColors
 import com.nova.ai.voice.NovaState
 
@@ -50,6 +52,8 @@ fun HomeScreen(
     message: String,
     source: String,
     brainOnline: Boolean,
+    emotion: String,
+    showAvatar: Boolean,
     onMic: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenPermissions: () -> Unit
@@ -78,11 +82,15 @@ fun HomeScreen(
             }
         }
 
-        Box(
+        BoxWithConstraints(
             Modifier.weight(1f).fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
-            NovaCore(state = state, level = level, modifier = Modifier.fillMaxWidth(0.85f))
+            val d = minOf(maxWidth * 0.95f, maxHeight)
+            NovaCore(state = state, level = level, modifier = Modifier.size(d))
+            if (showAvatar) {
+                NovaAvatar(state = state, emotion = emotion, modifier = Modifier.height(d * 0.8f))
+            }
         }
 
         Box(

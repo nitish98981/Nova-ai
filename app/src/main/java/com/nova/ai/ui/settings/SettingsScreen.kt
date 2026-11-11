@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -64,6 +65,18 @@ fun SettingsScreen(store: SettingsStore, voice: VoiceController, onBack: () -> U
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            SectionTitle("Avatar")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "NOVA ka chehra dikhao (band karne par sirf core dikhega)",
+                    color = NovaColors.Text,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(checked = store.showAvatar, onCheckedChange = { store.showAvatar = it })
+            }
+
+            Spacer(Modifier.height(4.dp))
             SectionTitle("Awaaz ki bhasha")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 VoiceLanguage.values().forEach { lang ->

@@ -57,6 +57,8 @@ fun NovaApp(store: SettingsStore) {
                 heard = voice.heard,
                 message = voice.message,
                 source = voice.source,
+                emotion = voice.emotion,
+                showAvatar = store.showAvatar,
                 brainOnline = store.brain != BrainChoice.OFFLINE &&
                     (store.geminiKey.isNotBlank() || store.openRouterKey.isNotBlank() ||
                         store.nvidiaKey.isNotBlank() || store.openAiKey.isNotBlank()),

@@ -20,6 +20,8 @@
 | Backend proxy for API keys | Planned |
 | Conversation history (Room database) | Planned |
 | Wake word, continuous conversation, emotional voice | Planned |
-| Anime avatar, lip-sync | Planned: Phase 4 |
+| Animated anime avatar (drawn in code): blink, breathing, 8 expressions from AI emotion tag | Implemented (stylised, first draft) |
+| Lip-sync | Partially: mouth moves while NOVA speaks, not synced word by word |
+| Avatar from your own artwork / 3D model | Planned |
 | Accessibility control, YouTube, Google | Planned: Phase 5 |
 | Scanner, coding assistant, Play Store | Planned: Phase 6 |

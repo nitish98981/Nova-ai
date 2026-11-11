@@ -45,6 +45,7 @@ class SettingsStore(context: Context) {
     private var _openAiKey by mutableStateOf(prefs.getString("openai_key", "") ?: "")
     private var _voiceEn by mutableStateOf(prefs.getString("voice_en", "") ?: "")
     private var _voiceHi by mutableStateOf(prefs.getString("voice_hi", "") ?: "")
+    private var _showAvatar by mutableStateOf(prefs.getBoolean("show_avatar", true))
     private var _brain by mutableStateOf(
         runCatching { BrainChoice.valueOf(prefs.getString("brain", "AUTO")!!) }
             .getOrDefault(BrainChoice.AUTO)
@@ -122,4 +123,8 @@ class SettingsStore(context: Context) {
     var nvidiaModel: String
         get() = _nvidiaModel
         set(v) { _nvidiaModel = v; prefs.edit().putString("nvidia_model", v).apply() }
+
+    var showAvatar: Boolean
+        get() = _showAvatar
+        set(v) { _showAvatar = v; prefs.edit().putBoolean("show_avatar", v).apply() }
 }
