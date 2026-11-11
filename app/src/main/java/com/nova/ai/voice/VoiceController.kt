@@ -15,11 +15,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.nova.ai.brain.Brain
 import com.nova.ai.data.SettingsStore
 import com.nova.ai.data.VoiceLanguage
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
-enum class NovaState { Idle, Listening, Speaking }
+enum class NovaState { Idle, Listening, Thinking, Speaking }
 
 /**
  * Phase 2 voice engine: Android SpeechRecognizer (listening) + Android TextToSpeech (speaking).
@@ -31,11 +38,17 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     private val main = Handler(Looper.getMainLooper())
     private var tts: TextToSpeech? = null
     private var recognizer: SpeechRecognizer? = null
+    private val brain = Brain(store)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var thinkingJob: Job? = null
 
     var state by mutableStateOf(NovaState.Idle); private set
     var heard by mutableStateOf(""); private set
     var message by mutableStateOf(GREETING); private set
     var level by mutableFloatStateOf(0f); private set
+    var source by mutableStateOf(""); private set
+    /** Last emotion tag from the AI (happy, playful...). Used by the avatar in Phase 4. */
+    var emotion by mutableStateOf("neutral"); private set
     var voices by mutableStateOf<List<Voice>>(emptyList()); private set
 
     init {
@@ -92,6 +105,10 @@ class VoiceController(context: Context, private val store: SettingsStore) {
                 tts?.stop()
                 startListening()
             }
+            NovaState.Thinking -> {
+                thinkingJob?.cancel()
+                startListening()
+            }
             NovaState.Idle -> startListening()
         }
     }
@@ -120,6 +137,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
         level = 0f
         state = NovaState.Listening
         message = "Sun rahi hoon…"
+        source = ""
         r.startListening(intent)
     }
 
@@ -175,15 +193,24 @@ class VoiceController(context: Context, private val store: SettingsStore) {
         }
     }
 
-    /** Phase 2 reply: repeat what was heard. The real AI brain arrives in Phase 3. */
+    /** Sends what the user said to the AI brain and speaks the answer. */
     private fun respondTo(text: String) {
-        val reply = if (hasDevanagari(text)) {
-            "तुमने कहा: $text। मेरा AI दिमाग़ अगले चरण में जुड़ेगा।"
-        } else {
-            "Tumne kaha: $text. Mera AI dimaag next phase mein judega."
+        state = NovaState.Thinking
+        message = "Soch rahi hoon…"
+        source = ""
+        thinkingJob = scope.launch {
+            try {
+                val r = brain.reply(text)
+                emotion = r.emotion
+                message = r.text
+                source = r.source
+                state = NovaState.Idle
+                speak(r.text)
+            } catch (e: Exception) {
+                state = NovaState.Idle
+                message = "Kuch gadbad ho gayi: ${e.message}"
+            }
         }
-        message = reply
-        speak(reply)
     }
 
     private fun hasDevanagari(text: String) = text.any { it in '\u0900'..'\u097F' }
@@ -213,6 +240,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     }
 
     fun release() {
+        scope.cancel()
         recognizer?.destroy()
         recognizer = null
         tts?.stop()
@@ -222,6 +250,6 @@ class VoiceController(context: Context, private val store: SettingsStore) {
 
     companion object {
         const val GREETING =
-            "Hey! Main NOVA hoon. Mic dabao aur bolo — main sunkar dohra dungi. Asli AI dimaag Phase 3 mein judega."
+            "Hey! Main NOVA hoon. Mic dabao aur mujhse baat karo."
     }
 }

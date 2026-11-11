@@ -15,6 +15,13 @@ enum class VoiceLanguage(val label: String) {
     ENGLISH("English")
 }
 
+enum class BrainChoice(val label: String) {
+    AUTO("Auto"),
+    GEMINI("Gemini"),
+    OPENAI("OpenAI"),
+    OFFLINE("Offline")
+}
+
 /** Settings are saved encrypted on the device. API keys never leave the phone. */
 class SettingsStore(context: Context) {
 
@@ -36,6 +43,15 @@ class SettingsStore(context: Context) {
     private var _openAiKey by mutableStateOf(prefs.getString("openai_key", "") ?: "")
     private var _voiceEn by mutableStateOf(prefs.getString("voice_en", "") ?: "")
     private var _voiceHi by mutableStateOf(prefs.getString("voice_hi", "") ?: "")
+    private var _brain by mutableStateOf(
+        runCatching { BrainChoice.valueOf(prefs.getString("brain", "AUTO")!!) }
+            .getOrDefault(BrainChoice.AUTO)
+    )
+    private var _geminiModel by mutableStateOf(prefs.getString("gemini_model", "gemini-2.5-flash") ?: "gemini-2.5-flash")
+    private var _openAiModel by mutableStateOf(prefs.getString("openai_model", "gpt-4.1-mini") ?: "gpt-4.1-mini")
+    private var _openAiBaseUrl by mutableStateOf(
+        prefs.getString("openai_base_url", "https://api.openai.com/v1") ?: "https://api.openai.com/v1"
+    )
 
     var language: VoiceLanguage
         get() = _language
@@ -66,4 +82,22 @@ class SettingsStore(context: Context) {
     var voiceHi: String
         get() = _voiceHi
         set(v) { _voiceHi = v; prefs.edit().putString("voice_hi", v).apply() }
+
+    /** Which AI brain to try first. Others are used automatically if it fails. */
+    var brain: BrainChoice
+        get() = _brain
+        set(v) { _brain = v; prefs.edit().putString("brain", v.name).apply() }
+
+    var geminiModel: String
+        get() = _geminiModel
+        set(v) { _geminiModel = v; prefs.edit().putString("gemini_model", v).apply() }
+
+    var openAiModel: String
+        get() = _openAiModel
+        set(v) { _openAiModel = v; prefs.edit().putString("openai_model", v).apply() }
+
+    /** Any OpenAI-compatible endpoint (OpenAI, Groq, OpenRouter...). */
+    var openAiBaseUrl: String
+        get() = _openAiBaseUrl
+        set(v) { _openAiBaseUrl = v; prefs.edit().putString("openai_base_url", v).apply() }
 }

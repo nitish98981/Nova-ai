@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nova.ai.data.BrainChoice
 import com.nova.ai.data.SettingsStore
 import com.nova.ai.data.VoiceLanguage
 import com.nova.ai.ui.theme.NovaColors
@@ -115,10 +116,38 @@ fun SettingsScreen(store: SettingsStore, voice: VoiceController, onBack: () -> U
             )
 
             Spacer(Modifier.height(8.dp))
-            SectionTitle("AI keys")
-            Hint("Keys sirf is phone mein encrypted save hoti hain. Inhe kabhi GitHub par mat daalna. Phase 3 mein inka use hoga.")
+            SectionTitle("AI dimaag")
+            Hint("Auto mein NOVA pehle Gemini try karti hai, phir OpenAI, aur kuch na chale to Offline. Jo choose karoge wo pehle chalega.")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BrainChoice.values().forEach { choice ->
+                    val selected = store.brain == choice
+                    Text(
+                        choice.label,
+                        color = if (selected) NovaColors.Void else NovaColors.Text,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(if (selected) NovaColors.Lavender else NovaColors.Panel)
+                            .border(1.dp, NovaColors.PanelEdge, RoundedCornerShape(50))
+                            .clickable { store.brain = choice }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+            SectionTitle("Gemini (free key mil sakti hai)")
+            Hint("Key banane ke liye aistudio.google.com/apikey kholo. Free tier ki limits hoti hain, aur Google free tier ka data apne products sudharne mein use kar sakta hai, isliye private baatein mat bolna.")
             KeyField("Gemini API key", store.geminiKey) { store.geminiKey = it }
-            KeyField("OpenAI API key (optional)", store.openAiKey) { store.openAiKey = it }
+            PlainField("Gemini model", store.geminiModel) { store.geminiModel = it }
+
+            Spacer(Modifier.height(4.dp))
+            SectionTitle("OpenAI ya compatible (optional)")
+            Hint("Groq, OpenRouter jaise OpenAI-compatible service ki key aur base URL bhi chalegi.")
+            KeyField("OpenAI API key", store.openAiKey) { store.openAiKey = it }
+            PlainField("OpenAI model", store.openAiModel) { store.openAiModel = it }
+            PlainField("Base URL", store.openAiBaseUrl) { store.openAiBaseUrl = it }
+            Hint("Keys sirf is phone mein encrypted save hoti hain. Inhe kabhi GitHub par mat daalna.")
 
             Spacer(Modifier.height(24.dp))
         }
@@ -175,5 +204,16 @@ private fun VoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
             .border(1.dp, NovaColors.PanelEdge, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 11.dp)
+    )
+}
+
+@Composable
+private fun PlainField(label: String, value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
     )
 }

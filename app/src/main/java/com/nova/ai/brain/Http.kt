@@ -1,0 +1,47 @@
+package com.nova.ai.brain
+
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+
+class BrainException(message: String, val code: Int = 0) : Exception(message) {
+    /** True when trying a different model of the same provider may help. */
+    val tryOtherModel: Boolean get() = code == 404 || code == 429 || code == 500 || code == 503
+}
+
+internal object Http {
+    suspend fun postJson(url: String, headers: Map<String, String>, body: String): String =
+        withContext(Dispatchers.IO) {
+            val c = URL(url).openConnection() as HttpURLConnection
+            try {
+                c.requestMethod = "POST"
+                c.connectTimeout = 15000
+                c.readTimeout = 40000
+                c.doOutput = true
+                c.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+                c.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                val code = c.responseCode
+                val stream = if (code in 200..299) c.inputStream else c.errorStream
+                val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
+                if (code !in 200..299) {
+                    throw BrainException("HTTP $code ${errorMessage(text)}".trim(), code)
+                }
+                text
+            } catch (e: IOException) {
+                throw BrainException("internet/connection problem")
+            } finally {
+                c.disconnect()
+            }
+        }
+
+    private fun errorMessage(body: String): String = try {
+        val m = JSONObject(body).optJSONObject("error")?.optString("message").orEmpty()
+        if (m.length > 140) m.take(140) + "…" else m
+    } catch (e: Exception) {
+        ""
+    }
+}

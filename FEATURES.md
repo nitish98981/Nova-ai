@@ -4,17 +4,22 @@
 |---|---|
 | Project structure, Compose + Material 3 theme | Implemented |
 | Home screen, animated NOVA core (avatar placeholder) | Implemented |
-| Settings (language, speed, pitch, encrypted API key storage) | Implemented |
+| Settings (language, speed, pitch, voice choice, encrypted keys) | Implemented |
 | Permissions dashboard (mic, notifications) | Implemented |
-| Speech-to-text (Android SpeechRecognizer, Hinglish/Hindi/English) | Implemented (needs internet unless offline language pack installed) |
-| Text-to-speech with speed, pitch and voice choice | Implemented |
-| Interrupt NOVA while she speaks (tap mic) | Implemented |
-| Core animation reacts to mic loudness | Implemented |
-| NOVA's reply | Partially: repeats what you said, real AI is Phase 3 |
-| Wake word ("Hey Nova") | Planned |
-| Continuous conversation (auto re-listen) | Planned |
-| Emotion in voice | Planned |
-| AI providers, offline model | Planned: Phase 3 |
+| Speech-to-text (Hinglish/Hindi/English, needs internet) | Implemented |
+| Text-to-speech with speed, pitch, voice choice | Implemented |
+| Interrupt NOVA (tap mic while she speaks or thinks) | Implemented |
+| Gemini AI brain | Implemented (needs your API key) |
+| OpenAI and OpenAI-compatible brain (Groq, OpenRouter...) | Implemented (needs key) |
+| Automatic provider fallback, ending in offline brain | Implemented |
+| Offline brain: time, date, simple calculator, greeting | Implemented (very basic) |
+| NOVA personality + emotion tag per reply | Implemented (tag used by avatar in Phase 4) |
+| Conversation memory | Partially: last 6 turns kept in RAM only |
+| Model choice by task (coding vs chat) | Planned |
+| Offline local LLM (llama.cpp) | Planned, heavy for a 32-bit 4 GB phone |
+| Backend proxy for API keys | Planned |
+| Conversation history (Room database) | Planned |
+| Wake word, continuous conversation, emotional voice | Planned |
 | Anime avatar, lip-sync | Planned: Phase 4 |
 | Accessibility control, YouTube, Google | Planned: Phase 5 |
 | Scanner, coding assistant, Play Store | Planned: Phase 6 |

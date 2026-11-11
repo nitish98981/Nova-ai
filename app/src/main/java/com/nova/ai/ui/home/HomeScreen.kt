@@ -48,6 +48,8 @@ fun HomeScreen(
     level: Float,
     heard: String,
     message: String,
+    source: String,
+    brainOnline: Boolean,
     onMic: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenPermissions: () -> Unit
@@ -96,6 +98,9 @@ fun HomeScreen(
                     Text("Tum: $heard", color = NovaColors.Muted, fontSize = 14.sp, lineHeight = 20.sp)
                 }
                 Text(message, color = NovaColors.Text, fontSize = 15.sp, lineHeight = 22.sp)
+                if (source.isNotBlank()) {
+                    Text(source, color = NovaColors.Muted, fontSize = 11.sp, lineHeight = 15.sp)
+                }
             }
         }
 
@@ -106,7 +111,12 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             PhaseChip("Voice", "Ready", NovaColors.Good, Modifier.weight(1f))
-            PhaseChip("Brain", "Phase 3", NovaColors.Muted, Modifier.weight(1f))
+            PhaseChip(
+                "Brain",
+                if (brainOnline) "Online" else "Offline",
+                if (brainOnline) NovaColors.Good else NovaColors.Muted,
+                Modifier.weight(1f)
+            )
             PhaseChip("Control", "Phase 5", NovaColors.Muted, Modifier.weight(1f))
         }
 
@@ -120,6 +130,7 @@ fun HomeScreen(
             when (state) {
                 NovaState.Idle -> "Tap karke bolo"
                 NovaState.Listening -> "Sun rahi hoon… dubara tap karo to ruk jaungi"
+                NovaState.Thinking -> "Soch rahi hoon… tap karke naya sawaal pucho"
                 NovaState.Speaking -> "Bol rahi hoon… tap karke beech mein roko"
             },
             color = NovaColors.Muted,

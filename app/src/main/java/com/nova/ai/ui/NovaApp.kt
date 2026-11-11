@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.nova.ai.data.BrainChoice
 import com.nova.ai.data.SettingsStore
 import com.nova.ai.ui.home.HomeScreen
 import com.nova.ai.ui.permissions.PermissionsScreen
@@ -55,6 +56,9 @@ fun NovaApp(store: SettingsStore) {
                 level = voice.level,
                 heard = voice.heard,
                 message = voice.message,
+                source = voice.source,
+                brainOnline = store.brain != BrainChoice.OFFLINE &&
+                    (store.geminiKey.isNotBlank() || store.openAiKey.isNotBlank()),
                 onMic = {
                     val granted = ContextCompat.checkSelfPermission(
                         context, Manifest.permission.RECORD_AUDIO

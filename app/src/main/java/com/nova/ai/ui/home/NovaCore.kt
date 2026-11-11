@@ -46,6 +46,7 @@ fun NovaCore(state: NovaState, level: Float, modifier: Modifier = Modifier) {
                 durationMillis = when (state) {
                     NovaState.Idle -> 16000
                     NovaState.Listening -> 5000
+                    NovaState.Thinking -> 2200
                     NovaState.Speaking -> 3500
                 },
                 easing = LinearEasing
@@ -69,6 +70,7 @@ fun NovaCore(state: NovaState, level: Float, modifier: Modifier = Modifier) {
         val accent = when (state) {
             NovaState.Idle -> NovaColors.Violet
             NovaState.Listening -> NovaColors.Cyan
+            NovaState.Thinking -> NovaColors.Cyan
             NovaState.Speaking -> NovaColors.Lavender
         }
         val boost = if (state == NovaState.Listening) smoothLevel * 0.18f else 0f
