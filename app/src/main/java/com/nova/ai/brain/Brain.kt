@@ -15,6 +15,11 @@ class Brain(private val store: SettingsStore) {
     private val history = ArrayList<ChatTurn>()
     private val offline = OfflineBrain()
     private val emotionTag = Regex("^\\s*\\[(\\w+)\\]\\s*")
+    private val codingWords = Regex(
+        "(?i)(\\b(code|coding|kotlin|java|python|javascript|html|css|bug|debug|error|exception|function|class|" +
+            "compile|compiler|gradle|script|program|programming|algorithm|api|sql|json|github|git)\\b)|" +
+            "c\\+\\+|c#|कोड|कोडिंग|प्रोग्राम|डीबग|एरर|फंक्शन"
+    )
     private val unspeakable = Regex("[*_#`~\\p{So}\\uFE0F]")
 
     suspend fun reply(userText: String): BrainReply {
@@ -22,16 +27,19 @@ class Brain(private val store: SettingsStore) {
         val notes = ArrayList<String>()
         var result: BrainReply? = null
 
-        val providers = providers(notes)
+        val providers = providers(notes, userText)
         for (p in providers) {
             try {
                 val raw = p.generate(SYSTEM_PROMPT, turns)
                 result = finish(raw, p.label)
+                if (notes.isNotEmpty()) {
+                    result = result.copy(source = result.source + " • pehle fail: " + notes.joinToString(" | "))
+                }
                 break
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                notes += "${p.label}: ${e.message}"
+                notes += "${p.label}: ${e.message}".take(100)
             }
         }
 
@@ -46,7 +54,7 @@ class Brain(private val store: SettingsStore) {
         return out
     }
 
-    private fun providers(notes: MutableList<String>): List<AiProvider> {
+    private fun providers(notes: MutableList<String>, userText: String): List<AiProvider> {
         if (store.brain == BrainChoice.OFFLINE) return emptyList()
 
         fun key(v: String) = v.trim().takeIf { it.isNotEmpty() }
@@ -67,7 +75,13 @@ class Brain(private val store: SettingsStore) {
             }
         }
 
-        val all = listOfNotNull(gemini, openRouter, nvidia, custom)
+        // Smart router (Auto mode): general chat -> Gemini first, coding -> OpenRouter / Custom first.
+        val coding = codingWords.containsMatchIn(userText)
+        val all = if (coding) {
+            listOfNotNull(openRouter, custom, gemini, nvidia)
+        } else {
+            listOfNotNull(gemini, nvidia, custom, openRouter)
+        }
         if (all.isEmpty() && notes.isEmpty()) {
             notes += "koi API key nahi hai (Settings mein daalo)"
         }

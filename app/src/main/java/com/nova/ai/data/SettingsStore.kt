@@ -56,7 +56,7 @@ class SettingsStore(context: Context) {
     private var _openRouterModel by mutableStateOf(prefs.getString("openrouter_model", "openrouter/free") ?: "openrouter/free")
     private var _nvidiaKey by mutableStateOf(prefs.getString("nvidia_key", "") ?: "")
     private var _nvidiaModel by mutableStateOf(
-        prefs.getString("nvidia_model", "meta/llama-3.1-8b-instruct") ?: "meta/llama-3.1-8b-instruct"
+        prefs.getString("nvidia_model", "meta/llama-3.3-70b-instruct") ?: "meta/llama-3.3-70b-instruct"
     )
 
     var language: VoiceLanguage

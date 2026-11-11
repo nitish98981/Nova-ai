@@ -15,7 +15,7 @@
 | Offline brain: time, date, simple calculator, greeting | Implemented (very basic) |
 | NOVA personality + emotion tag per reply | Implemented (tag used by avatar in Phase 4) |
 | Conversation memory | Partially: last 6 turns kept in RAM only |
-| Model choice by task (coding vs chat) | Planned |
+| Smart router: coding questions vs general chat pick different provider order | Implemented (keyword based) |
 | Offline local LLM (llama.cpp) | Planned, heavy for a 32-bit 4 GB phone |
 | Backend proxy for API keys | Planned |
 | Conversation history (Room database) | Planned |

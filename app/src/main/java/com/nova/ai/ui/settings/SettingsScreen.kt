@@ -118,7 +118,7 @@ fun SettingsScreen(store: SettingsStore, voice: VoiceController, onBack: () -> U
 
             Spacer(Modifier.height(8.dp))
             SectionTitle("AI dimaag")
-            Hint("Auto mein NOVA keys ke order se try karti hai: Gemini, OpenRouter, NVIDIA, Custom, aur kuch na chale to Offline. Jo choose karoge wo sabse pehle chalega.")
+            Hint("Auto mein NOVA kaam dekh kar chunti hai: aam baatein Gemini, NVIDIA, Custom, OpenRouter ke order mein; coding ke sawaal OpenRouter, Custom, Gemini, NVIDIA ke order mein. Kuch na chale to Offline. Jo pill choose karoge wo sabse pehle chalega.")
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
