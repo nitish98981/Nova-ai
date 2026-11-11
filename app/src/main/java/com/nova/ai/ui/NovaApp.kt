@@ -58,7 +58,8 @@ fun NovaApp(store: SettingsStore) {
                 message = voice.message,
                 source = voice.source,
                 brainOnline = store.brain != BrainChoice.OFFLINE &&
-                    (store.geminiKey.isNotBlank() || store.openAiKey.isNotBlank()),
+                    (store.geminiKey.isNotBlank() || store.openRouterKey.isNotBlank() ||
+                        store.nvidiaKey.isNotBlank() || store.openAiKey.isNotBlank()),
                 onMic = {
                     val granted = ContextCompat.checkSelfPermission(
                         context, Manifest.permission.RECORD_AUDIO

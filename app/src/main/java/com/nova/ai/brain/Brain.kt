@@ -48,18 +48,41 @@ class Brain(private val store: SettingsStore) {
 
     private fun providers(notes: MutableList<String>): List<AiProvider> {
         if (store.brain == BrainChoice.OFFLINE) return emptyList()
-        val gemini = store.geminiKey.trim().takeIf { it.isNotEmpty() }
-            ?.let { GeminiProvider(it, store.geminiModel) }
-        val openAi = store.openAiKey.trim().takeIf { it.isNotEmpty() }
-            ?.let { OpenAiProvider(it, store.openAiModel, store.openAiBaseUrl) }
 
-        if (gemini == null && openAi == null) {
+        fun key(v: String) = v.trim().takeIf { it.isNotEmpty() }
+
+        val gemini = key(store.geminiKey)?.let { GeminiProvider(it, store.geminiModel) }
+        val openRouter = key(store.openRouterKey)?.let {
+            OpenAiProvider("OpenRouter", it, store.openRouterModel, "https://openrouter.ai/api/v1")
+        }
+        val nvidia = key(store.nvidiaKey)?.let {
+            OpenAiProvider("NVIDIA", it, store.nvidiaModel, "https://integrate.api.nvidia.com/v1")
+        }
+        val custom = key(store.openAiKey)?.let {
+            if (store.openAiBaseUrl.isBlank()) {
+                notes += "Custom: Base URL nahi hai"
+                null
+            } else {
+                OpenAiProvider("Custom", it, store.openAiModel, store.openAiBaseUrl)
+            }
+        }
+
+        val all = listOfNotNull(gemini, openRouter, nvidia, custom)
+        if (all.isEmpty() && notes.isEmpty()) {
             notes += "koi API key nahi hai (Settings mein daalo)"
         }
-        return when (store.brain) {
-            BrainChoice.OPENAI -> listOfNotNull(openAi, gemini)
-            else -> listOfNotNull(gemini, openAi)
+
+        val preferred = when (store.brain) {
+            BrainChoice.GEMINI -> gemini
+            BrainChoice.OPENROUTER -> openRouter
+            BrainChoice.NVIDIA -> nvidia
+            BrainChoice.CUSTOM -> custom
+            else -> null
         }
+        if (preferred == null && store.brain != BrainChoice.AUTO && all.isNotEmpty()) {
+            notes += "${store.brain.label} ki key nahi hai"
+        }
+        return listOfNotNull(preferred) + all.filter { it !== preferred }
     }
 
     private fun finish(raw: String, label: String): BrainReply {

@@ -1,6 +1,5 @@
 package com.nova.ai.brain
 
-import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -12,20 +11,20 @@ interface AiProvider {
 }
 
 class GeminiProvider(private val key: String, model: String) : AiProvider {
-    private val primaryModel = model.trim().removePrefix("models/").ifEmpty { "gemini-2.5-flash" }
+    private val primaryModel = model.trim().removePrefix("models/").ifEmpty { "gemini-3.5-flash" }
     override val label = "Gemini"
 
     override suspend fun generate(system: String, turns: List<ChatTurn>): String {
-        var last: BrainException? = null
-        for (m in listOf(primaryModel, "gemini-2.5-flash-lite").distinct()) {
+        val errors = ArrayList<String>()
+        for (m in listOf(primaryModel, "gemini-3.5-flash-lite").distinct()) {
             try {
                 return call(m, system, turns)
             } catch (e: BrainException) {
-                last = e
-                if (!e.tryOtherModel) throw e
+                errors += "$m: ${e.message}"
+                if (!e.tryOtherModel) throw BrainException(errors.joinToString(" / "), e.code)
             }
         }
-        throw last ?: BrainException("Gemini ne jawab nahi diya")
+        throw BrainException(errors.joinToString(" / "))
     }
 
     private suspend fun call(model: String, system: String, turns: List<ChatTurn>): String {
@@ -66,23 +65,30 @@ class GeminiProvider(private val key: String, model: String) : AiProvider {
     }
 }
 
-/** Works with OpenAI and any OpenAI-compatible service (Groq, OpenRouter, ...). */
-class OpenAiProvider(private val key: String, private val model: String, baseUrl: String) : AiProvider {
-    private val base = baseUrl.trim().trimEnd('/').ifEmpty { "https://api.openai.com/v1" }
-    override val label: String = runCatching { URL(base).host }.getOrDefault("OpenAI")
-        .let { if (it == "api.openai.com") "OpenAI" else it }
+/** Works with any OpenAI-compatible service: OpenRouter, NVIDIA, llmsrelay, Groq, OpenAI... */
+class OpenAiProvider(
+    override val label: String,
+    private val key: String,
+    private val model: String,
+    baseUrl: String
+) : AiProvider {
+    private val base = baseUrl.trim().trimEnd('/')
 
     override suspend fun generate(system: String, turns: List<ChatTurn>): String {
+        val modelName = model.trim()
+        if (modelName.isEmpty()) throw BrainException("model ka naam Settings mein daalo")
         val messages = JSONArray().put(JSONObject().put("role", "system").put("content", system))
         for (t in turns) {
             messages.put(
                 JSONObject().put("role", if (t.fromUser) "user" else "assistant").put("content", t.text)
             )
         }
+        // api.openai.com wants max_completion_tokens; most other services still expect max_tokens.
+        val tokensField = if (base.contains("api.openai.com")) "max_completion_tokens" else "max_tokens"
         val body = JSONObject()
-            .put("model", model.trim().ifEmpty { "gpt-4.1-mini" })
+            .put("model", modelName)
             .put("messages", messages)
-            .put("max_completion_tokens", 400)
+            .put(tokensField, 600)
 
         val resp = Http.postJson(
             url = "$base/chat/completions",
@@ -92,7 +98,7 @@ class OpenAiProvider(private val key: String, private val model: String, baseUrl
         val text = JSONObject(resp)
             .optJSONArray("choices")?.optJSONObject(0)
             ?.optJSONObject("message")?.optString("content").orEmpty().trim()
-        if (text.isEmpty()) throw BrainException("khali jawab")
+        if (text.isEmpty()) throw BrainException("khali jawab [$modelName]")
         return text
     }
 }

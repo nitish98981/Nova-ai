@@ -19,7 +19,7 @@ internal object Http {
             try {
                 c.requestMethod = "POST"
                 c.connectTimeout = 15000
-                c.readTimeout = 40000
+                c.readTimeout = 25000
                 c.doOutput = true
                 c.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 headers.forEach { (k, v) -> c.setRequestProperty(k, v) }

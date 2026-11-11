@@ -18,7 +18,9 @@ enum class VoiceLanguage(val label: String) {
 enum class BrainChoice(val label: String) {
     AUTO("Auto"),
     GEMINI("Gemini"),
-    OPENAI("OpenAI"),
+    OPENROUTER("OpenRouter"),
+    NVIDIA("NVIDIA"),
+    CUSTOM("Custom"),
     OFFLINE("Offline")
 }
 
@@ -47,10 +49,14 @@ class SettingsStore(context: Context) {
         runCatching { BrainChoice.valueOf(prefs.getString("brain", "AUTO")!!) }
             .getOrDefault(BrainChoice.AUTO)
     )
-    private var _geminiModel by mutableStateOf(prefs.getString("gemini_model", "gemini-2.5-flash") ?: "gemini-2.5-flash")
-    private var _openAiModel by mutableStateOf(prefs.getString("openai_model", "gpt-4.1-mini") ?: "gpt-4.1-mini")
-    private var _openAiBaseUrl by mutableStateOf(
-        prefs.getString("openai_base_url", "https://api.openai.com/v1") ?: "https://api.openai.com/v1"
+    private var _geminiModel by mutableStateOf(prefs.getString("gemini_model", "gemini-3.5-flash") ?: "gemini-3.5-flash")
+    private var _openAiModel by mutableStateOf(prefs.getString("openai_model", "") ?: "")
+    private var _openAiBaseUrl by mutableStateOf(prefs.getString("openai_base_url", "") ?: "")
+    private var _openRouterKey by mutableStateOf(prefs.getString("openrouter_key", "") ?: "")
+    private var _openRouterModel by mutableStateOf(prefs.getString("openrouter_model", "openrouter/free") ?: "openrouter/free")
+    private var _nvidiaKey by mutableStateOf(prefs.getString("nvidia_key", "") ?: "")
+    private var _nvidiaModel by mutableStateOf(
+        prefs.getString("nvidia_model", "meta/llama-3.1-8b-instruct") ?: "meta/llama-3.1-8b-instruct"
     )
 
     var language: VoiceLanguage
@@ -96,8 +102,24 @@ class SettingsStore(context: Context) {
         get() = _openAiModel
         set(v) { _openAiModel = v; prefs.edit().putString("openai_model", v).apply() }
 
-    /** Any OpenAI-compatible endpoint (OpenAI, Groq, OpenRouter...). */
+    /** Custom OpenAI-compatible endpoint (llmsrelay, Groq, ...). Base URL, key and model. */
     var openAiBaseUrl: String
         get() = _openAiBaseUrl
         set(v) { _openAiBaseUrl = v; prefs.edit().putString("openai_base_url", v).apply() }
+
+    var openRouterKey: String
+        get() = _openRouterKey
+        set(v) { _openRouterKey = v; prefs.edit().putString("openrouter_key", v).apply() }
+
+    var openRouterModel: String
+        get() = _openRouterModel
+        set(v) { _openRouterModel = v; prefs.edit().putString("openrouter_model", v).apply() }
+
+    var nvidiaKey: String
+        get() = _nvidiaKey
+        set(v) { _nvidiaKey = v; prefs.edit().putString("nvidia_key", v).apply() }
+
+    var nvidiaModel: String
+        get() = _nvidiaModel
+        set(v) { _nvidiaModel = v; prefs.edit().putString("nvidia_model", v).apply() }
 }

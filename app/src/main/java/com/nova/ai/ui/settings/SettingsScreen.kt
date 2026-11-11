@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -117,8 +118,11 @@ fun SettingsScreen(store: SettingsStore, voice: VoiceController, onBack: () -> U
 
             Spacer(Modifier.height(8.dp))
             SectionTitle("AI dimaag")
-            Hint("Auto mein NOVA pehle Gemini try karti hai, phir OpenAI, aur kuch na chale to Offline. Jo choose karoge wo pehle chalega.")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Hint("Auto mein NOVA keys ke order se try karti hai: Gemini, OpenRouter, NVIDIA, Custom, aur kuch na chale to Offline. Jo choose karoge wo sabse pehle chalega.")
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 BrainChoice.values().forEach { choice ->
                     val selected = store.brain == choice
                     Text(
@@ -134,20 +138,31 @@ fun SettingsScreen(store: SettingsStore, voice: VoiceController, onBack: () -> U
                     )
                 }
             }
+            Hint("Keys sirf is phone mein encrypted save hoti hain. Inhe kabhi GitHub ya chat mein mat daalna.")
 
             Spacer(Modifier.height(4.dp))
-            SectionTitle("Gemini (free key mil sakti hai)")
-            Hint("Key banane ke liye aistudio.google.com/apikey kholo. Free tier ki limits hoti hain, aur Google free tier ka data apne products sudharne mein use kar sakta hai, isliye private baatein mat bolna.")
+            SectionTitle("Gemini")
+            Hint("Free tier ka data Google apne products sudharne mein use kar sakta hai, isliye private baatein mat bolna.")
             KeyField("Gemini API key", store.geminiKey) { store.geminiKey = it }
             PlainField("Gemini model", store.geminiModel) { store.geminiModel = it }
 
             Spacer(Modifier.height(4.dp))
-            SectionTitle("OpenAI ya compatible (optional)")
-            Hint("Groq, OpenRouter jaise OpenAI-compatible service ki key aur base URL bhi chalegi.")
-            KeyField("OpenAI API key", store.openAiKey) { store.openAiKey = it }
-            PlainField("OpenAI model", store.openAiModel) { store.openAiModel = it }
-            PlainField("Base URL", store.openAiBaseUrl) { store.openAiBaseUrl = it }
-            Hint("Keys sirf is phone mein encrypted save hoti hain. Inhe kabhi GitHub par mat daalna.")
+            SectionTitle("OpenRouter")
+            KeyField("OpenRouter API key", store.openRouterKey) { store.openRouterKey = it }
+            PlainField("OpenRouter model", store.openRouterModel) { store.openRouterModel = it }
+            Hint("Model nahi chale to openrouter.ai/models par free model ka naam dekh kar yahan daalo (aksar :free se khatam hota hai).")
+
+            Spacer(Modifier.height(4.dp))
+            SectionTitle("NVIDIA")
+            KeyField("NVIDIA API key", store.nvidiaKey) { store.nvidiaKey = it }
+            PlainField("NVIDIA model", store.nvidiaModel) { store.nvidiaModel = it }
+            Hint("Model ka sahi naam build.nvidia.com ke model page par milta hai.")
+
+            Spacer(Modifier.height(4.dp))
+            SectionTitle("Custom (llmsrelay ya koi bhi OpenAI-compatible)")
+            KeyField("Custom API key", store.openAiKey) { store.openAiKey = it }
+            PlainField("Custom base URL (jaise https://.../v1)", store.openAiBaseUrl) { store.openAiBaseUrl = it }
+            PlainField("Custom model", store.openAiModel) { store.openAiModel = it }
 
             Spacer(Modifier.height(24.dp))
         }

@@ -10,7 +10,7 @@
 | Text-to-speech with speed, pitch, voice choice | Implemented |
 | Interrupt NOVA (tap mic while she speaks or thinks) | Implemented |
 | Gemini AI brain | Implemented (needs your API key) |
-| OpenAI and OpenAI-compatible brain (Groq, OpenRouter...) | Implemented (needs key) |
+| OpenRouter, NVIDIA and custom OpenAI-compatible brains | Implemented (need your keys and model names) |
 | Automatic provider fallback, ending in offline brain | Implemented |
 | Offline brain: time, date, simple calculator, greeting | Implemented (very basic) |
 | NOVA personality + emotion tag per reply | Implemented (tag used by avatar in Phase 4) |
