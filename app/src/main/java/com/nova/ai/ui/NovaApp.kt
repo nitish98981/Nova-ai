@@ -22,10 +22,13 @@ import com.nova.ai.data.SettingsStore
 import com.nova.ai.ui.home.HomeScreen
 import com.nova.ai.ui.permissions.PermissionsScreen
 import com.nova.ai.ui.settings.SettingsScreen
+import com.nova.ai.ui.tools.CodeAssistantScreen
+import com.nova.ai.ui.tools.RoutinesScreen
+import com.nova.ai.ui.tools.ScannerScreen
 import com.nova.ai.ui.theme.NovaColors
 import com.nova.ai.voice.VoiceController
 
-private enum class Screen { Home, Settings, Permissions }
+private enum class Screen { Home, Settings, Permissions, Scanner, Code, Routines }
 
 @Composable
 fun NovaApp(store: SettingsStore) {
@@ -70,10 +73,23 @@ fun NovaApp(store: SettingsStore) {
                     if (granted) voice.toggle() else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 },
                 onOpenSettings = { screen = Screen.Settings },
-                onOpenPermissions = { screen = Screen.Permissions }
+                onOpenPermissions = { screen = Screen.Permissions },
+                onOpenScanner = { screen = Screen.Scanner },
+                onOpenCode = { screen = Screen.Code },
+                onOpenRoutines = { screen = Screen.Routines }
             )
             Screen.Settings -> SettingsScreen(store, voice) { screen = Screen.Home }
             Screen.Permissions -> PermissionsScreen { screen = Screen.Home }
+            Screen.Scanner -> ScannerScreen(store, voice) { screen = Screen.Home }
+            Screen.Code -> CodeAssistantScreen(voice) { screen = Screen.Home }
+            Screen.Routines -> RoutinesScreen(
+                store = store,
+                onRun = { name ->
+                    screen = Screen.Home
+                    voice.submitText("$name routine chalao")
+                },
+                onBack = { screen = Screen.Home }
+            )
         }
     }
 }

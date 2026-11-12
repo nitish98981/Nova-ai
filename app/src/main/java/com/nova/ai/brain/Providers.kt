@@ -9,20 +9,30 @@ interface AiProvider {
     val label: String
 
     /** Streams the answer: [onDelta] gets each piece of text as it arrives. Returns the full text. */
-    suspend fun stream(system: String, turns: List<ChatTurn>, onDelta: (String) -> Unit): String
+    suspend fun stream(
+        system: String,
+        turns: List<ChatTurn>,
+        maxTokens: Int = 300,
+        onDelta: (String) -> Unit
+    ): String
 }
 
 class GeminiProvider(private val key: String, model: String) : AiProvider {
     private val primaryModel = model.trim().removePrefix("models/").ifEmpty { "gemini-3.5-flash" }
     override val label = "Gemini"
 
-    override suspend fun stream(system: String, turns: List<ChatTurn>, onDelta: (String) -> Unit): String {
+    override suspend fun stream(
+        system: String,
+        turns: List<ChatTurn>,
+        maxTokens: Int,
+        onDelta: (String) -> Unit
+    ): String {
         val errors = ArrayList<String>()
         var started = false
         val guarded: (String) -> Unit = { started = true; onDelta(it) }
         for (m in listOf(primaryModel, "gemini-3.5-flash-lite").distinct()) {
             try {
-                return callWithThinkingFallback(m, system, turns, guarded)
+                return callWithThinkingFallback(m, system, turns, maxTokens, guarded)
             } catch (e: BrainException) {
                 errors += "$m: ${e.message}"
                 // Once words have been spoken we cannot restart with another model.
@@ -34,21 +44,24 @@ class GeminiProvider(private val key: String, model: String) : AiProvider {
 
     /** Thinking makes Gemini 3.x slow for chat. Ask for minimal thinking; if the model rejects it, remember and retry. */
     private suspend fun callWithThinkingFallback(
-        model: String, system: String, turns: List<ChatTurn>, onDelta: (String) -> Unit
+        model: String, system: String, turns: List<ChatTurn>, maxTokens: Int, onDelta: (String) -> Unit
     ): String {
-        if (model in thinkingRejected) return call(model, system, turns, false, onDelta)
+        // Short voice answers: minimal thinking for speed. Long (coding) answers keep default thinking for quality.
+        val fast = maxTokens <= 400
+        if (!fast || model in thinkingRejected) return call(model, system, turns, maxTokens, false, onDelta)
         return try {
-            call(model, system, turns, true, onDelta)
+            call(model, system, turns, maxTokens, true, onDelta)
         } catch (e: BrainException) {
             if (e.code == 400) {
                 thinkingRejected += model
-                call(model, system, turns, false, onDelta)
+                call(model, system, turns, maxTokens, false, onDelta)
             } else throw e
         }
     }
 
     private suspend fun call(
-        model: String, system: String, turns: List<ChatTurn>, minimalThinking: Boolean, onDelta: (String) -> Unit
+        model: String, system: String, turns: List<ChatTurn>, maxTokens: Int, minimalThinking: Boolean,
+        onDelta: (String) -> Unit
     ): String {
         val contents = JSONArray()
         for (t in turns) {
@@ -58,7 +71,7 @@ class GeminiProvider(private val key: String, model: String) : AiProvider {
                     .put("parts", JSONArray().put(JSONObject().put("text", t.text)))
             )
         }
-        val gen = JSONObject().put("maxOutputTokens", 300).put("temperature", 0.9)
+        val gen = JSONObject().put("maxOutputTokens", maxTokens).put("temperature", 0.9)
         if (minimalThinking) {
             val thinking = if (model.contains("2.5")) JSONObject().put("thinkingBudget", 0)
             else JSONObject().put("thinkingLevel", "minimal")
@@ -115,7 +128,12 @@ class OpenAiProvider(
 ) : AiProvider {
     private val base = baseUrl.trim().trimEnd('/')
 
-    override suspend fun stream(system: String, turns: List<ChatTurn>, onDelta: (String) -> Unit): String {
+    override suspend fun stream(
+        system: String,
+        turns: List<ChatTurn>,
+        maxTokens: Int,
+        onDelta: (String) -> Unit
+    ): String {
         val modelName = model.trim()
         if (modelName.isEmpty()) throw BrainException("model ka naam Settings mein daalo")
         val messages = JSONArray().put(JSONObject().put("role", "system").put("content", system))
@@ -130,7 +148,7 @@ class OpenAiProvider(
             .put("model", modelName)
             .put("messages", messages)
             .put("stream", true)
-            .put(tokensField, 300)
+            .put(tokensField, maxTokens)
 
         val full = StringBuilder()
         Http.postStream(

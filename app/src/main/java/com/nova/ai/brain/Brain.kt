@@ -69,6 +69,36 @@ class Brain(private val store: SettingsStore) {
         return out
     }
 
+    /**
+     * Long, text-only answer (coding assistant). Streams into [onDelta]; returns the full text and provider name.
+     * Uses the same provider order and fallback as voice chat, but allows much longer answers.
+     */
+    suspend fun answerLong(
+        system: String,
+        turns: List<ChatTurn>,
+        userText: String,
+        onDelta: (String) -> Unit
+    ): Pair<String, String> {
+        val notes = ArrayList<String>()
+        val list = providers(notes, userText)
+        if (list.isEmpty()) {
+            throw BrainException(notes.joinToString(" | ").ifEmpty { "koi AI provider ready nahi (Settings mein key daalo)" })
+        }
+        for (p in list) {
+            var started = false
+            try {
+                val text = p.stream(system, turns, 2000) { started = true; onDelta(it) }
+                return text to p.label
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (started) throw BrainException("${p.label} beech mein ruk gaya: ${e.message}")
+                notes += "${p.label}: ${e.message}".take(100)
+            }
+        }
+        throw BrainException(notes.joinToString(" | "))
+    }
+
     /** Cuts a streamed answer into speakable sentences and pulls the [emotion] tag off the front. */
     private inner class SentenceStreamer(private val onSentence: (String, String) -> Unit) {
         private val buf = StringBuilder()

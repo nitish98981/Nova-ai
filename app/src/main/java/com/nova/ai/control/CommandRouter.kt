@@ -2,6 +2,7 @@ package com.nova.ai.control
 
 import android.content.Context
 import android.view.KeyEvent
+import com.nova.ai.data.Routine
 import com.nova.ai.data.SettingsStore
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -43,15 +44,48 @@ class CommandRouter(private val ctx: Context, private val store: SettingsStore) 
     private val apps = AppResolver(ctx)
 
     fun tryHandle(text: String): ActionPlan? {
-        val command = parse(text) ?: return null
+        val routine = findRoutine(text)
+        val command = if (routine == null) parse(text) else null
+        if (routine == null && command == null) return null
         if (!store.phoneControl) {
             return ActionPlan(
                 "Phone control abhi band hai. Settings mein Phone control chalu karo, phir mujhe bolna.",
                 "neutral"
             )
         }
-        return execute(command)
+        return if (routine != null) runRoutine(routine) else execute(command!!)
     }
+
+    // ------------------------------------------------------------------ routines
+
+    /** "<naam> routine chalao": finds a saved routine whose name is spoken together with the word routine. */
+    private fun findRoutine(text: String): Routine? {
+        val lower = text.lowercase(Locale.ROOT)
+        if (!lower.contains("routine") && !lower.contains("रूटीन")) return null
+        return store.routines.firstOrNull { it.name.isNotBlank() && lower.contains(it.name.trim().lowercase(Locale.ROOT)) }
+    }
+
+    private fun runRoutine(r: Routine): ActionPlan = ActionPlan(
+        "Okayyy! ${r.name} routine shuru kar rahi hoon, ${r.steps.size} kaam hain.",
+        "playful",
+        run = {
+            var problem: String? = null
+            for (step in r.steps) {
+                val c = parse(step)
+                if (c == null) {
+                    problem = "Routine mein \"$step\" mujhe samajh nahi aaya, isliye ruk gayi."
+                    break
+                }
+                val err = execute(c).run?.invoke()
+                if (!err.isNullOrBlank()) {
+                    problem = err
+                    break
+                }
+                delay(1500)
+            }
+            problem
+        }
+    )
 
     // ------------------------------------------------------------------ parsing
 

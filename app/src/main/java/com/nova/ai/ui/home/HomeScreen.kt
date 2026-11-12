@@ -57,7 +57,10 @@ fun HomeScreen(
     controlOn: Boolean,
     onMic: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenPermissions: () -> Unit
+    onOpenPermissions: () -> Unit,
+    onOpenScanner: () -> Unit,
+    onOpenCode: () -> Unit,
+    onOpenRoutines: () -> Unit
 ) {
     Column(
         Modifier
@@ -134,7 +137,18 @@ fun HomeScreen(
             )
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(10.dp))
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            ToolTile("Scanner", onOpenScanner, Modifier.weight(1f))
+            ToolTile("Code", onOpenCode, Modifier.weight(1f))
+            ToolTile("Routines", onOpenRoutines, Modifier.weight(1f))
+        }
+
+        Spacer(Modifier.height(14.dp))
 
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             MicButton(active = state == NovaState.Listening, onClick = onMic)
@@ -166,6 +180,21 @@ private fun PhaseChip(name: String, phase: String, phaseColor: Color, modifier: 
     ) {
         Text(name, color = NovaColors.Text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         Text(phase, color = phaseColor, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun ToolTile(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(NovaColors.Violet.copy(alpha = 0.15f))
+            .border(1.dp, NovaColors.Violet.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text, color = NovaColors.Lavender, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 

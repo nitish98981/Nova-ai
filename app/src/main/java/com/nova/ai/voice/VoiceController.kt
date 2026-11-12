@@ -41,7 +41,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     private val main = Handler(Looper.getMainLooper())
     private var tts: TextToSpeech? = null
     private var recognizer: SpeechRecognizer? = null
-    private val brain = Brain(store)
+    val brain = Brain(store)
     private val router = CommandRouter(appContext, store)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var thinkingJob: Job? = null
@@ -105,6 +105,20 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     fun voicesFor(lang: String): List<Voice> =
         voices.filter { it.locale.language == lang }
             .sortedWith(compareByDescending<Voice> { it.locale.country == "IN" }.thenBy { it.name })
+
+    /** Runs typed/saved text exactly like something the user said (used by routines). */
+    fun submitText(text: String) {
+        generation++
+        thinkingJob?.cancel()
+        tts?.stop()
+        recognizer?.cancel()
+        level = 0f
+        state = NovaState.Idle
+        heard = text
+        emotion = "neutral"
+        source = ""
+        respondTo(text)
+    }
 
     fun showNotice(text: String) {
         message = text

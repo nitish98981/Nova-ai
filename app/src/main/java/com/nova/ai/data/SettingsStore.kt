@@ -24,6 +24,30 @@ enum class BrainChoice(val label: String) {
     OFFLINE("Offline")
 }
 
+/** A saved list of voice commands NOVA runs one after another ("good morning routine chalao"). */
+data class Routine(val name: String, val steps: List<String>)
+
+private fun loadRoutines(raw: String): List<Routine> = try {
+    val arr = org.json.JSONArray(raw)
+    (0 until arr.length()).map { i ->
+        val o = arr.getJSONObject(i)
+        val steps = o.getJSONArray("steps")
+        Routine(o.getString("name"), (0 until steps.length()).map { steps.getString(it) })
+    }
+} catch (e: Exception) {
+    emptyList()
+}
+
+private fun routinesToJson(list: List<Routine>): String {
+    val arr = org.json.JSONArray()
+    for (r in list) {
+        arr.put(
+            org.json.JSONObject().put("name", r.name).put("steps", org.json.JSONArray(r.steps))
+        )
+    }
+    return arr.toString()
+}
+
 /** Settings are saved encrypted on the device. API keys never leave the phone. */
 class SettingsStore(context: Context) {
 
@@ -60,6 +84,8 @@ class SettingsStore(context: Context) {
     private var _nvidiaModel by mutableStateOf(
         prefs.getString("nvidia_model", "meta/llama-3.3-70b-instruct") ?: "meta/llama-3.3-70b-instruct"
     )
+
+    private var _routines by mutableStateOf(loadRoutines(prefs.getString("routines", "[]") ?: "[]"))
 
     var language: VoiceLanguage
         get() = _language
@@ -124,6 +150,10 @@ class SettingsStore(context: Context) {
     var nvidiaModel: String
         get() = _nvidiaModel
         set(v) { _nvidiaModel = v; prefs.edit().putString("nvidia_model", v).apply() }
+
+    var routines: List<Routine>
+        get() = _routines
+        set(v) { _routines = v; prefs.edit().putString("routines", routinesToJson(v)).apply() }
 
     var showAvatar: Boolean
         get() = _showAvatar

@@ -35,4 +35,8 @@
 | Fast replies: streaming answers, NOVA speaks sentence by sentence, minimal Gemini thinking, shorter timeouts, quicker end-of-speech | Implemented (Phase 5a, untested) |
 | Multi-step tasks with AI planning | Planned |
 | Floating NOVA bubble to give commands while inside other apps | Planned (Phase 5b) |
-| Scanner, coding assistant, Play Store | Planned: Phase 6 |
+| Scanner: photo of a product / text / anything -> Gemini describes it (camera or gallery) | Implemented (Phase 6, untested). Prices are estimates only; needs Gemini key; photo is sent to Google |
+| Coding assistant screen: streaming long answers, code blocks with Copy | Implemented (Phase 6, untested) |
+| Routines: saved command lists, run by saying "<name> routine chalao" | Implemented (Phase 6, untested); needs Phone control on |
+| Routines on a timer / automatic triggers | Planned |
+| Barcode scanning, live product prices | Planned (needs extra libraries / a price source) |

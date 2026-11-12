@@ -15,13 +15,18 @@ class BrainException(message: String, val code: Int = 0) : Exception(message) {
 }
 
 internal object Http {
-    suspend fun postJson(url: String, headers: Map<String, String>, body: String): String =
+    suspend fun postJson(
+        url: String,
+        headers: Map<String, String>,
+        body: String,
+        readTimeoutMs: Int = 20000
+    ): String =
         withContext(Dispatchers.IO) {
             val c = URL(url).openConnection() as HttpURLConnection
             try {
                 c.requestMethod = "POST"
                 c.connectTimeout = 8000
-                c.readTimeout = 20000
+                c.readTimeout = readTimeoutMs
                 c.doOutput = true
                 c.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
