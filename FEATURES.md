@@ -41,3 +41,14 @@
 | Routines: saved command lists, run by saying "<name> routine chalao" | Implemented (Phase 6, untested); needs Phone control on |
 | Routines on a timer / automatic triggers | Planned |
 | Barcode scanning, live product prices | Planned (needs extra libraries / a price source) |
+
+## UI redesign (from the user's sketch)
+| Feature | Status |
+|---|---|
+| Home: menu (Customise) top-left, notifications top-right, NOVA in the middle, buttons Chat / Image banao / Code / More | Implemented (untested) |
+| Customise: Add API, Select voice, Accessibility, Language | Implemented (untested) |
+| Add API as a step-by-step flow: Gemini, NVIDIA, OpenRouter, LLMsRelay with Add (tests the key), Back, Continue | Implemented (untested) |
+| Chat screen: type to NOVA, conversation list | Implemented; history kept in memory only (saved history planned) |
+| Notifications screen: NOVA's recent actions and errors | Implemented |
+| Image generator (Gemini image model, save to gallery) | Implemented (untested); may need a billing-enabled Gemini key |
+| More: Scanner, Routines, Permissions, all settings | Implemented |

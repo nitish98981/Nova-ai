@@ -10,31 +10,45 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import com.nova.ai.data.BrainChoice
 import com.nova.ai.data.SettingsStore
+import com.nova.ai.ui.chat.ChatScreen
+import com.nova.ai.ui.customise.AccessibilityScreen
+import com.nova.ai.ui.customise.ApiWizardScreen
+import com.nova.ai.ui.customise.CustomiseScreen
+import com.nova.ai.ui.customise.LanguageScreen
+import com.nova.ai.ui.customise.VoiceSelectScreen
 import com.nova.ai.ui.home.HomeScreen
+import com.nova.ai.ui.imagegen.ImageGenScreen
+import com.nova.ai.ui.more.MoreScreen
+import com.nova.ai.ui.notifications.NotificationsScreen
 import com.nova.ai.ui.permissions.PermissionsScreen
 import com.nova.ai.ui.settings.SettingsScreen
+import com.nova.ai.ui.theme.NovaColors
 import com.nova.ai.ui.tools.CodeAssistantScreen
 import com.nova.ai.ui.tools.RoutinesScreen
 import com.nova.ai.ui.tools.ScannerScreen
-import com.nova.ai.ui.theme.NovaColors
 import com.nova.ai.voice.VoiceController
 
-private enum class Screen { Home, Settings, Permissions, Scanner, Code, Routines }
+private enum class Screen {
+    Home, Customise, Api, SelectVoice, Accessibility, Language,
+    Notifications, Chat, ImageGen, Code, More, Scanner, Routines, Permissions, Settings
+}
 
 @Composable
 fun NovaApp(store: SettingsStore) {
     val context = LocalContext.current
-    var screen by remember { mutableStateOf(Screen.Home) }
+    val stack = remember { mutableStateListOf(Screen.Home) }
+    val screen = stack.last()
     val voice = remember { VoiceController(context, store) }
+
+    fun go(s: Screen) { stack.add(s) }
+    fun back() { if (stack.size > 1) stack.removeAt(stack.lastIndex) }
+    fun home() { stack.clear(); stack.add(Screen.Home) }
 
     DisposableEffect(Unit) {
         onDispose { voice.release() }
@@ -50,7 +64,14 @@ fun NovaApp(store: SettingsStore) {
         }
     }
 
-    BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
+    val onMic = {
+        val granted = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) voice.toggle() else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    BackHandler(enabled = stack.size > 1) { back() }
 
     Box(Modifier.fillMaxSize().background(NovaColors.Void)) {
         when (screen) {
@@ -62,34 +83,50 @@ fun NovaApp(store: SettingsStore) {
                 source = voice.source,
                 emotion = voice.emotion,
                 showAvatar = store.showAvatar,
-                controlOn = store.phoneControl,
-                brainOnline = store.brain != BrainChoice.OFFLINE &&
-                    (store.geminiKey.isNotBlank() || store.openRouterKey.isNotBlank() ||
-                        store.nvidiaKey.isNotBlank() || store.openAiKey.isNotBlank()),
-                onMic = {
-                    val granted = ContextCompat.checkSelfPermission(
-                        context, Manifest.permission.RECORD_AUDIO
-                    ) == PackageManager.PERMISSION_GRANTED
-                    if (granted) voice.toggle() else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                },
-                onOpenSettings = { screen = Screen.Settings },
-                onOpenPermissions = { screen = Screen.Permissions },
-                onOpenScanner = { screen = Screen.Scanner },
-                onOpenCode = { screen = Screen.Code },
-                onOpenRoutines = { screen = Screen.Routines }
+                unread = voice.unread,
+                onMic = onMic,
+                onCustomise = { go(Screen.Customise) },
+                onNotifications = { go(Screen.Notifications) },
+                onChat = { go(Screen.Chat) },
+                onImage = { go(Screen.ImageGen) },
+                onCode = { go(Screen.Code) },
+                onMore = { go(Screen.More) }
             )
-            Screen.Settings -> SettingsScreen(store, voice) { screen = Screen.Home }
-            Screen.Permissions -> PermissionsScreen { screen = Screen.Home }
-            Screen.Scanner -> ScannerScreen(store, voice) { screen = Screen.Home }
-            Screen.Code -> CodeAssistantScreen(voice) { screen = Screen.Home }
+            Screen.Customise -> CustomiseScreen(
+                store = store,
+                onBack = { back() },
+                onApi = { go(Screen.Api) },
+                onVoice = { go(Screen.SelectVoice) },
+                onAccessibility = { go(Screen.Accessibility) },
+                onLanguage = { go(Screen.Language) },
+                onMoreSettings = { go(Screen.Settings) }
+            )
+            Screen.Api -> ApiWizardScreen(store) { back() }
+            Screen.SelectVoice -> VoiceSelectScreen(store, voice) { back() }
+            Screen.Accessibility -> AccessibilityScreen(store, { back() }, { go(Screen.Permissions) })
+            Screen.Language -> LanguageScreen(store) { back() }
+            Screen.Notifications -> NotificationsScreen(voice) { back() }
+            Screen.Chat -> ChatScreen(voice, { back() }, onMic)
+            Screen.ImageGen -> ImageGenScreen(store) { back() }
+            Screen.Code -> CodeAssistantScreen(voice) { back() }
+            Screen.More -> MoreScreen(
+                onBack = { back() },
+                onScanner = { go(Screen.Scanner) },
+                onRoutines = { go(Screen.Routines) },
+                onPermissions = { go(Screen.Permissions) },
+                onSettings = { go(Screen.Settings) }
+            )
+            Screen.Scanner -> ScannerScreen(store, voice) { back() }
             Screen.Routines -> RoutinesScreen(
                 store = store,
                 onRun = { name ->
-                    screen = Screen.Home
+                    home()
                     voice.submitText("$name routine chalao")
                 },
-                onBack = { screen = Screen.Home }
+                onBack = { back() }
             )
+            Screen.Permissions -> PermissionsScreen { back() }
+            Screen.Settings -> SettingsScreen(store, voice) { back() }
         }
     }
 }

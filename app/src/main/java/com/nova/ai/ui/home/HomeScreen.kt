@@ -20,12 +20,12 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,12 +38,17 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nova.ai.ui.avatar.NovaAvatar
 import com.nova.ai.ui.theme.NovaColors
 import com.nova.ai.voice.NovaState
 
+/**
+ * Home: menu (Customise) top-left, notifications top-right, NOVA in the middle (tap her to talk),
+ * and four big buttons at the bottom: Chat, Image, Code, More.
+ */
 @Composable
 fun HomeScreen(
     state: NovaState,
@@ -51,43 +56,59 @@ fun HomeScreen(
     heard: String,
     message: String,
     source: String,
-    brainOnline: Boolean,
     emotion: String,
     showAvatar: Boolean,
-    controlOn: Boolean,
+    unread: Int,
     onMic: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenPermissions: () -> Unit,
-    onOpenScanner: () -> Unit,
-    onOpenCode: () -> Unit,
-    onOpenRoutines: () -> Unit
+    onCustomise: () -> Unit,
+    onNotifications: () -> Unit,
+    onChat: () -> Unit,
+    onImage: () -> Unit,
+    onCode: () -> Unit,
+    onMore: () -> Unit
 ) {
     Column(
         Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onCustomise) {
+                Icon(Icons.Default.Menu, contentDescription = "Customise", tint = NovaColors.Lavender)
+            }
             Text(
                 "NOVA",
-                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 6.sp,
                 color = NovaColors.Lavender
             )
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = onOpenPermissions) {
-                Text("Permissions", color = NovaColors.Muted)
-            }
-            IconButton(onClick = onOpenSettings) {
-                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = NovaColors.Lavender)
+            Box {
+                IconButton(onClick = onNotifications) {
+                    Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = NovaColors.Lavender)
+                }
+                if (unread > 0) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(NovaColors.Cyan)
+                    )
+                }
             }
         }
 
         BoxWithConstraints(
-            Modifier.weight(1f).fillMaxWidth(),
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .clickable(onClick = onMic),
             contentAlignment = Alignment.Center
         ) {
             val d = minOf(maxWidth * 0.95f, maxHeight)
@@ -100,60 +121,35 @@ fun HomeScreen(
         Box(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(18.dp))
                 .background(NovaColors.Panel)
-                .border(1.dp, NovaColors.PanelEdge, RoundedCornerShape(20.dp))
-                .padding(16.dp)
+                .border(1.dp, NovaColors.PanelEdge, RoundedCornerShape(18.dp))
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (heard.isNotBlank()) {
-                    Text("Tum: $heard", color = NovaColors.Muted, fontSize = 14.sp, lineHeight = 20.sp)
+                    Text(
+                        "Tum: $heard", color = NovaColors.Muted, fontSize = 13.sp,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis
+                    )
                 }
-                Text(message, color = NovaColors.Text, fontSize = 15.sp, lineHeight = 22.sp)
+                Text(
+                    message, color = NovaColors.Text, fontSize = 14.sp, lineHeight = 20.sp,
+                    maxLines = 4, overflow = TextOverflow.Ellipsis
+                )
                 if (source.isNotBlank()) {
-                    Text(source, color = NovaColors.Muted, fontSize = 11.sp, lineHeight = 15.sp)
+                    Text(
+                        source, color = NovaColors.Muted, fontSize = 10.sp, lineHeight = 14.sp,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
 
-        Spacer(Modifier.height(14.dp))
-
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            PhaseChip("Voice", "Ready", NovaColors.Good, Modifier.weight(1f))
-            PhaseChip(
-                "Brain",
-                if (brainOnline) "Online" else "Offline",
-                if (brainOnline) NovaColors.Good else NovaColors.Muted,
-                Modifier.weight(1f)
-            )
-            PhaseChip(
-                "Control",
-                if (controlOn) "On" else "Off",
-                if (controlOn) NovaColors.Good else NovaColors.Muted,
-                Modifier.weight(1f)
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            ToolTile("Scanner", onOpenScanner, Modifier.weight(1f))
-            ToolTile("Code", onOpenCode, Modifier.weight(1f))
-            ToolTile("Routines", onOpenRoutines, Modifier.weight(1f))
-        }
-
-        Spacer(Modifier.height(14.dp))
-
+        Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             MicButton(active = state == NovaState.Listening, onClick = onMic)
         }
-        Spacer(Modifier.height(8.dp))
         Text(
             when (state) {
                 NovaState.Idle -> "Tap karke bolo"
@@ -162,24 +158,22 @@ fun HomeScreen(
                 NovaState.Speaking -> "Bol rahi hoon… tap karke beech mein roko"
             },
             color = NovaColors.Muted,
-            fontSize = 12.sp,
-            modifier = Modifier.fillMaxWidth(),
+            fontSize = 11.sp,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             textAlign = TextAlign.Center
         )
-    }
-}
 
-@Composable
-private fun PhaseChip(name: String, phase: String, phaseColor: Color, modifier: Modifier = Modifier) {
-    Column(
-        modifier
-            .clip(RoundedCornerShape(14.dp))
-            .border(1.dp, NovaColors.PanelEdge, RoundedCornerShape(14.dp))
-            .padding(vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(name, color = NovaColors.Text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-        Text(phase, color = phaseColor, fontSize = 12.sp)
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ToolTile("Chat", onChat, Modifier.weight(1f))
+            ToolTile("Image banao", onImage, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ToolTile("Code", onCode, Modifier.weight(1f))
+            ToolTile("More", onMore, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(4.dp))
     }
 }
 
@@ -187,14 +181,14 @@ private fun PhaseChip(name: String, phase: String, phaseColor: Color, modifier: 
 private fun ToolTile(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
+            .height(52.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(NovaColors.Violet.copy(alpha = 0.15f))
             .border(1.dp, NovaColors.Violet.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(text, color = NovaColors.Lavender, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        Text(text, color = NovaColors.Lavender, fontSize = 16.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -203,7 +197,7 @@ private fun MicButton(active: Boolean, onClick: () -> Unit) {
     val accent = if (active) NovaColors.Cyan else NovaColors.Violet
     Box(
         Modifier
-            .size(72.dp)
+            .size(60.dp)
             .clip(CircleShape)
             .background(accent.copy(alpha = 0.18f))
             .border(2.dp, accent, CircleShape)
@@ -216,7 +210,7 @@ private fun MicButton(active: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun MicGlyph(color: Color) {
-    Canvas(Modifier.size(28.dp)) {
+    Canvas(Modifier.size(26.dp)) {
         val w = size.width
         val h = size.height
         drawRoundRect(

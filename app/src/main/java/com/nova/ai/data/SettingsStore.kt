@@ -76,6 +76,7 @@ class SettingsStore(context: Context) {
         runCatching { VoiceEngine.valueOf(prefs.getString("voice_engine", "HUMAN")!!) }
             .getOrDefault(VoiceEngine.HUMAN)
     )
+    private var _imageModel by mutableStateOf(prefs.getString("image_model", "gemini-3.1-flash-lite-image") ?: "gemini-3.1-flash-lite-image")
     private var _humanVoice by mutableStateOf(prefs.getString("human_voice", "Leda") ?: "Leda")
     private var _ttsModel by mutableStateOf(
         prefs.getString("tts_model", "gemini-3.8-flash-lite-tts") ?: "gemini-3.8-flash-lite-tts"
@@ -178,4 +179,10 @@ class SettingsStore(context: Context) {
     var phoneControl: Boolean
         get() = _phoneControl
         set(v) { _phoneControl = v; prefs.edit().putBoolean("phone_control", v).apply() }
+
+    /** Gemini image model used by the Image generator. */
+    var imageModel: String
+        get() = _imageModel
+        set(v) { _imageModel = v; prefs.edit().putString("image_model", v).apply() }
 }
+

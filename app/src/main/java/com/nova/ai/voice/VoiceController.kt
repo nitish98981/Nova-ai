@@ -11,6 +11,8 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -29,6 +31,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class NovaState { Idle, Listening, Thinking, Speaking }
+
+/** One line of the Chat screen. [note] is small grey text under NOVA's answers (which AI answered). */
+data class ChatLine(val fromUser: Boolean, val text: String, val note: String = "")
+
+/** One entry of the Notifications screen (what NOVA did or what went wrong). */
+data class ActivityItem(val time: String, val text: String)
 
 /**
  * Phase 2 voice engine: Android SpeechRecognizer (listening) + Android TextToSpeech (speaking).
@@ -63,6 +71,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
 
         override fun onNote(note: String) {
             humanNote = note
+            if (note.isNotBlank()) addActivity("Human voice nahi chali, phone ki awaaz use hui: $note")
         }
     })
     /** Bumped whenever a reply is interrupted or replaced, so late sentences from the old one are dropped. */
@@ -77,6 +86,32 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     var source by mutableStateOf(""); private set
     /** Last emotion tag from the AI (happy, playful...). Used by the avatar in Phase 4. */
     var emotion by mutableStateOf("neutral"); private set
+    /** Everything said in this session (kept in memory only; cleared when the app closes). */
+    val chatLog = mutableStateListOf<ChatLine>()
+
+    /** True while an AI answer is still being written/spoken and is not yet in [chatLog]. */
+    var replying by mutableStateOf(false); private set
+
+    val activity = mutableStateListOf<ActivityItem>()
+    var unread by mutableIntStateOf(0); private set
+
+    fun markRead() {
+        unread = 0
+    }
+
+    fun clearActivity() {
+        activity.clear()
+        unread = 0
+    }
+
+    private fun addActivity(text: String) {
+        val time = java.time.LocalTime.now()
+            .format(java.time.format.DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH))
+        activity.add(0, ActivityItem(time, text))
+        while (activity.size > 50) activity.removeAt(activity.lastIndex)
+        unread++
+    }
+
     /** Last problem with the Gemini voice ("" = none). Shown in Settings. */
     var humanNote by mutableStateOf(""); private set
 
@@ -123,6 +158,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     fun submitText(text: String) {
         generation++
         thinkingJob?.cancel()
+        replying = false
         human.stop()
         tts?.stop()
         recognizer?.cancel()
@@ -145,6 +181,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             NovaState.Speaking, NovaState.Thinking -> {
                 generation++
                 thinkingJob?.cancel()
+                replying = false
                 human.stop()
                 tts?.stop()
                 pendingSpeech = 0
@@ -240,11 +277,13 @@ class VoiceController(context: Context, private val store: SettingsStore) {
 
     /** Sends what the user said to the AI brain and speaks the answer. */
     private fun respondTo(text: String) {
+        chatLog += ChatLine(true, text)
         val plan = router.tryHandle(text)
         if (plan != null) {
             runPlan(plan)
             return
         }
+        replying = true
         state = NovaState.Thinking
         message = "Soch rahi hoon…"
         source = ""
@@ -274,6 +313,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
                     emotion = r.emotion
                     message = r.text
                     speak(r.text)
+                    finishReply(r.text, r.source)
                     if (state == NovaState.Thinking && !human.busy) {
                         state = if (pendingSpeech > 0) NovaState.Speaking else NovaState.Idle
                     }
@@ -282,6 +322,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
                     // Sentences are delivered through main.post, so finish in the same queue to keep order.
                     main.post {
                         if (myGen != generation) return@post
+                        finishReply(message, r.source)
                         finishSpeech()
                         if (state == NovaState.Thinking && !human.busy) {
                             state = if (pendingSpeech > 0) NovaState.Speaking else NovaState.Idle
@@ -291,7 +332,9 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             } catch (e: Exception) {
                 if (myGen != generation) return@launch
                 state = NovaState.Idle
+                replying = false
                 message = "Kuch gadbad ho gayi: ${e.message}"
+                addActivity("AI se jawab nahi mila: ${e.message}")
             }
         }
     }
@@ -302,6 +345,8 @@ class VoiceController(context: Context, private val store: SettingsStore) {
         message = plan.reply
         source = "Phone control"
         state = NovaState.Idle
+        chatLog += ChatLine(false, plan.reply, "Phone control")
+        addActivity("Phone control: " + plan.reply)
         speak(plan.reply)
         val job = plan.run ?: return
         thinkingJob = scope.launch {
@@ -313,9 +358,18 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             }
             if (!follow.isNullOrBlank()) {
                 message = follow
+                chatLog += ChatLine(false, follow, "Phone control")
+                addActivity(follow)
                 speak(follow)
             }
         }
+    }
+
+    /** The AI answer is complete: store it in the chat and note any provider that failed on the way. */
+    private fun finishReply(text: String, src: String) {
+        replying = false
+        if (text.isNotBlank()) chatLog += ChatLine(false, text, src)
+        if (src.contains("fail") || src.startsWith("Offline")) addActivity("AI: $src")
     }
 
     private fun hasDevanagari(text: String) = text.any { it in '\u0900'..'\u097F' }
