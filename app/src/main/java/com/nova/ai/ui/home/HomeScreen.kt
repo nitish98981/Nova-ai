@@ -54,6 +54,7 @@ fun HomeScreen(
     brainOnline: Boolean,
     emotion: String,
     showAvatar: Boolean,
+    controlOn: Boolean,
     onMic: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenPermissions: () -> Unit
@@ -125,7 +126,12 @@ fun HomeScreen(
                 if (brainOnline) NovaColors.Good else NovaColors.Muted,
                 Modifier.weight(1f)
             )
-            PhaseChip("Control", "Phase 5", NovaColors.Muted, Modifier.weight(1f))
+            PhaseChip(
+                "Control",
+                if (controlOn) "On" else "Off",
+                if (controlOn) NovaColors.Good else NovaColors.Muted,
+                Modifier.weight(1f)
+            )
         }
 
         Spacer(Modifier.height(20.dp))

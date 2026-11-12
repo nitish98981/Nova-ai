@@ -16,6 +16,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.nova.ai.brain.Brain
+import com.nova.ai.control.ActionPlan
+import com.nova.ai.control.CommandRouter
 import com.nova.ai.data.SettingsStore
 import com.nova.ai.data.VoiceLanguage
 import java.util.Locale
@@ -24,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class NovaState { Idle, Listening, Thinking, Speaking }
@@ -39,6 +42,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     private var tts: TextToSpeech? = null
     private var recognizer: SpeechRecognizer? = null
     private val brain = Brain(store)
+    private val router = CommandRouter(appContext, store)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var thinkingJob: Job? = null
 
@@ -196,6 +200,11 @@ class VoiceController(context: Context, private val store: SettingsStore) {
 
     /** Sends what the user said to the AI brain and speaks the answer. */
     private fun respondTo(text: String) {
+        val plan = router.tryHandle(text)
+        if (plan != null) {
+            runPlan(plan)
+            return
+        }
         state = NovaState.Thinking
         message = "Soch rahi hoon…"
         source = ""
@@ -210,6 +219,28 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             } catch (e: Exception) {
                 state = NovaState.Idle
                 message = "Kuch gadbad ho gayi: ${e.message}"
+            }
+        }
+    }
+
+    /** Phone-control command: speak first, then do the job (and maybe speak a follow-up). */
+    private fun runPlan(plan: ActionPlan) {
+        emotion = plan.emotion
+        message = plan.reply
+        source = "Phone control"
+        state = NovaState.Idle
+        speak(plan.reply)
+        val job = plan.run ?: return
+        thinkingJob = scope.launch {
+            delay(900)
+            val follow = try {
+                job()
+            } catch (e: Exception) {
+                "Kaam karte waqt gadbad ho gayi: ${e.message}"
+            }
+            if (!follow.isNullOrBlank()) {
+                message = follow
+                speak(follow)
             }
         }
     }

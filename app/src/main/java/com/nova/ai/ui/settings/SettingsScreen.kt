@@ -77,6 +77,19 @@ fun SettingsScreen(store: SettingsStore, voice: VoiceController, onBack: () -> U
             }
 
             Spacer(Modifier.height(4.dp))
+            SectionTitle("Phone control")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "NOVA ko apps kholne, search, alarm aur timer ki ijazat do",
+                    color = NovaColors.Text,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(checked = store.phoneControl, onCheckedChange = { store.phoneControl = it })
+            }
+            Hint("Try karo: \"YouTube kholo\", \"YouTube par Arijit Singh search karo\", \"Google par mausam search karo\", \"WhatsApp kholo\", \"7 baje ka alarm\", \"5 minute ka timer\". Back, scroll, tap aur screen padhne ke liye Permissions mein Accessibility bhi chalu karni hogi. Payment, bank aur password wali screens par NOVA kaam nahi karti.")
+
+            Spacer(Modifier.height(4.dp))
             SectionTitle("Awaaz ki bhasha")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 VoiceLanguage.values().forEach { lang ->

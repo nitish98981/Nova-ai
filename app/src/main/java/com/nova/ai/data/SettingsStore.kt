@@ -46,6 +46,7 @@ class SettingsStore(context: Context) {
     private var _voiceEn by mutableStateOf(prefs.getString("voice_en", "") ?: "")
     private var _voiceHi by mutableStateOf(prefs.getString("voice_hi", "") ?: "")
     private var _showAvatar by mutableStateOf(prefs.getBoolean("show_avatar", true))
+    private var _phoneControl by mutableStateOf(prefs.getBoolean("phone_control", false))
     private var _brain by mutableStateOf(
         runCatching { BrainChoice.valueOf(prefs.getString("brain", "AUTO")!!) }
             .getOrDefault(BrainChoice.AUTO)
@@ -127,4 +128,9 @@ class SettingsStore(context: Context) {
     var showAvatar: Boolean
         get() = _showAvatar
         set(v) { _showAvatar = v; prefs.edit().putBoolean("show_avatar", v).apply() }
+
+    /** Master switch: NOVA may open apps, search, set alarms and (with Accessibility) tap/scroll. Off by default. */
+    var phoneControl: Boolean
+        get() = _phoneControl
+        set(v) { _phoneControl = v; prefs.edit().putBoolean("phone_control", v).apply() }
 }

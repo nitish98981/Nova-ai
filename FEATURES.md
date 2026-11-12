@@ -23,5 +23,15 @@
 | Animated anime avatar (drawn in code): blink, breathing, 8 expressions from AI emotion tag | Implemented (stylised, first draft) |
 | Lip-sync | Partially: mouth moves while NOVA speaks, not synced word by word |
 | Avatar from your own artwork / 3D model | Planned |
-| Accessibility control, YouTube, Google | Planned: Phase 5 |
+| Master switch "Phone control" (off by default) | Implemented |
+| Open apps by name (Hinglish/Hindi/English) | Implemented |
+| YouTube: open, search (opens real results in the YouTube app) | Implemented |
+| YouTube: play Nth search result | Partially: uses Accessibility, may break with YouTube updates |
+| Play / pause / next / previous, volume | Implemented (media keys) |
+| Google search, open websites | Implemented |
+| Alarm and timer (Android clock app) | Implemented |
+| Play Store search (user installs manually) | Implemented |
+| Accessibility: Back, Home, Recents, scroll, tap by text, read screen | Implemented, untested; blocked on payment/bank/password/installer apps |
+| Multi-step tasks with AI planning | Planned |
+| Floating NOVA bubble to give commands while inside other apps | Planned (Phase 5b) |
 | Scanner, coding assistant, Play Store | Planned: Phase 6 |

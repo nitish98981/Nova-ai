@@ -1,6 +1,7 @@
 package com.nova.ai.ui.permissions
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.nova.ai.control.NovaAccessibilityService
 import com.nova.ai.ui.theme.NovaColors
 
 @Composable
@@ -74,6 +76,13 @@ fun PermissionsScreen(onBack: () -> Unit) {
     val notifGranted = !notifNeeded || ContextCompat.checkSelfPermission(
         context, Manifest.permission.POST_NOTIFICATIONS
     ) == PackageManager.PERMISSION_GRANTED
+
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ).orEmpty()
+    val component = ComponentName(context, NovaAccessibilityService::class.java)
+    val a11yOn = enabledServices.contains(component.flattenToString(), ignoreCase = true) ||
+        enabledServices.contains(component.flattenToShortString(), ignoreCase = true)
 
     Column(
         Modifier
@@ -126,9 +135,9 @@ fun PermissionsScreen(onBack: () -> Unit) {
 
             PermissionRow(
                 title = "Accessibility (phone control)",
-                detail = "Apps kholna aur screen par tap karna. Service Phase 5 mein aayegi, tab tak list mein NOVA nahi dikhegi.",
-                status = "Phase 5",
-                good = false,
+                detail = "Back, scroll, tap aur screen padhne ke liye. List mein NOVA AI dhundo aur chalu karo. Payment, bank aur password wali screens par NOVA kaam nahi karti.",
+                status = if (a11yOn) "Chalu" else "Band",
+                good = a11yOn,
                 actionLabel = "Open settings",
                 onAction = {
                     context.startActivity(

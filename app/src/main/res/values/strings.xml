@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">NOVA AI</string>
+    <string name="accessibility_description">NOVA tumhari ijazat se apps ka screen padhne, scroll karne aur tap karne mein madad karti hai. Payment, banking aur password wali screens par ye kaam nahi karti. Tum ise kabhi bhi yahin se band kar sakte ho.</string>
 </resources>
