@@ -2,6 +2,7 @@ package com.nova.ai.brain
 
 import com.nova.ai.data.BrainChoice
 import com.nova.ai.data.SettingsStore
+import com.nova.ai.data.VoiceEngine
 import kotlin.coroutines.cancellation.CancellationException
 
 data class BrainReply(val text: String, val emotion: String, val source: String)
@@ -37,7 +38,7 @@ class Brain(private val store: SettingsStore) {
         for (p in providers) {
             val streamer = SentenceStreamer(onSentence)
             try {
-                p.stream(SYSTEM_PROMPT, turns) { streamer.push(it) }
+                p.stream(systemPrompt(), turns) { streamer.push(it) }
                 streamer.finish()
                 if (streamer.spoken.isBlank()) throw BrainException("khali jawab")
                 result = BrainReply(streamer.spoken.trim(), streamer.emotion, p.label)
@@ -215,8 +216,15 @@ class Brain(private val store: SettingsStore) {
         return listOfNotNull(preferred) + all.filter { it !== preferred }
     }
 
+    private fun systemPrompt(): String =
+        if (store.voiceEngine == VoiceEngine.HUMAN) SYSTEM_PROMPT + HUMAN_VOICE_RULE else SYSTEM_PROMPT
+
     companion object {
         private const val MAX_HISTORY = 12
+
+        private const val HUMAN_VOICE_RULE =
+            "\n- Hindi shabd Devanagari mein aur English shabd Latin mein likho (jaise: आज तुम्हारा mood कैसा है?), " +
+                "taki awaaz natural lage. Roman Hinglish mat likho."
 
         private val SYSTEM_PROMPT = """
             Tum NOVA ho: ek friendly, caring aur playful anime-style AI saathi, jo Android phone par voice assistant ki tarah kaam karti hai.

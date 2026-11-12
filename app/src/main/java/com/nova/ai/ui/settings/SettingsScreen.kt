@@ -35,10 +35,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nova.ai.data.BrainChoice
 import com.nova.ai.data.SettingsStore
+import com.nova.ai.data.VoiceEngine
 import com.nova.ai.data.VoiceLanguage
+import com.nova.ai.voice.HumanVoice
 import com.nova.ai.ui.theme.NovaColors
 import com.nova.ai.voice.VoiceController
-import android.speech.tts.Voice
 import androidx.compose.material3.TextButton
 
 @Composable
@@ -115,32 +116,52 @@ fun SettingsScreen(store: SettingsStore, voice: VoiceController, onBack: () -> U
                 valueRange = 0.5f..2f
             )
 
-            SectionTitle("Awaaz ki pitch: %.1f".format(store.pitch))
+            SectionTitle("Phone voice ki pitch: %.1f".format(store.pitch))
             Slider(
                 value = store.pitch,
                 onValueChange = { store.pitch = (Math.round(it * 10) / 10f) },
                 valueRange = 0.5f..2f
             )
-            TextButton(onClick = { voice.preview("en") }) {
+            Hint("Speed dono awaazon par lagti hai. Pitch sirf phone ki awaaz par lagti hai.")
+
+            Spacer(Modifier.height(8.dp))
+            SectionTitle("NOVA ki awaaz")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VoiceEngine.values().forEach { engine ->
+                    val selected = store.voiceEngine == engine
+                    Text(
+                        engine.label,
+                        color = if (selected) NovaColors.Void else NovaColors.Text,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(if (selected) NovaColors.Lavender else NovaColors.Panel)
+                            .border(1.dp, NovaColors.PanelEdge, RoundedCornerShape(50))
+                            .clickable { store.voiceEngine = engine }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+            Hint("Human: Gemini ki natural insaani awaaz. Internet aur Gemini key chahiye, aur jawab ke baad thodi der se bolti hai. Phone: Android ki awaaz, turant bolti hai par robotic lagti hai. Human na chale to NOVA khud phone ki awaaz par aa jaati hai.")
+            if (store.voiceEngine == VoiceEngine.HUMAN) {
+                SectionTitle("Human voice chuno")
+                Hint("Google awaaz ka gender nahi batata. Har naam tap karke sun lo aur jo ladki jaisi pyari lage wahi rakho.")
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    HumanVoice.VOICES.forEach { (name, desc) ->
+                        VoiceRow("$name — $desc", store.humanVoice == name) {
+                            store.humanVoice = name
+                            voice.preview()
+                        }
+                    }
+                }
+                PlainField("Voice model", store.ttsModel) { store.ttsModel = it }
+            }
+            TextButton(onClick = { voice.preview() }) {
                 Text("Test awaaz sunao", color = NovaColors.Cyan)
             }
-
-            Spacer(Modifier.height(8.dp))
-            SectionTitle("English / Hinglish voice")
-            Hint("Android voice ka gender nahi batata, isliye har voice tap karke sun lo aur jo sabse achhi lage wahi chuno.")
-            VoicePicker(
-                options = voice.voicesFor("en"),
-                selected = store.voiceEn,
-                onPick = { store.voiceEn = it; voice.preview("en") }
-            )
-
-            Spacer(Modifier.height(8.dp))
-            SectionTitle("Hindi voice")
-            VoicePicker(
-                options = voice.voicesFor("hi"),
-                selected = store.voiceHi,
-                onPick = { store.voiceHi = it; voice.preview("hi") }
-            )
+            if (voice.humanNote.isNotBlank()) {
+                Hint("Human voice abhi nahi chali: " + voice.humanNote)
+            }
 
             Spacer(Modifier.height(8.dp))
             SectionTitle("AI dimaag")
@@ -215,21 +236,6 @@ private fun KeyField(label: String, value: String, onChange: (String) -> Unit) {
         visualTransformation = PasswordVisualTransformation(),
         modifier = Modifier.fillMaxWidth()
     )
-}
-
-@Composable
-private fun VoicePicker(options: List<Voice>, selected: String, onPick: (String) -> Unit) {
-    if (options.isEmpty()) {
-        Hint("Koi voice nahi mili. Phone Settings → Text-to-speech se Google voice data download karo.")
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        VoiceRow("Phone ki default voice", selected.isEmpty()) { onPick("") }
-        options.take(10).forEachIndexed { index, v ->
-            val online = if (v.isNetworkConnectionRequired) " (online)" else ""
-            VoiceRow("Voice ${index + 1}: ${v.locale.displayName}$online", selected == v.name) { onPick(v.name) }
-        }
-    }
 }
 
 @Composable

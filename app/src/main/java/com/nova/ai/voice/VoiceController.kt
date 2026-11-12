@@ -10,7 +10,6 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.speech.tts.Voice
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +44,27 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     private val router = CommandRouter(appContext, store)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var thinkingJob: Job? = null
+    /** True while the current reply is spoken by the Gemini (human) voice. */
+    private var humanReply = false
+    private val human = HumanVoice(store, scope, object : HumanVoice.Callbacks {
+        override fun onPlaybackStart() {
+            state = NovaState.Speaking
+        }
+
+        override fun onAllDone() {
+            if (pendingSpeech == 0 && (state == NovaState.Speaking || state == NovaState.Thinking)) {
+                state = NovaState.Idle
+            }
+        }
+
+        override fun onFallback(text: String) {
+            speakAndroid(text, flush = false)
+        }
+
+        override fun onNote(note: String) {
+            humanNote = note
+        }
+    })
     /** Bumped whenever a reply is interrupted or replaced, so late sentences from the old one are dropped. */
     private var generation = 0
     /** Number of sentences queued in TTS and not finished yet. */
@@ -57,7 +77,8 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     var source by mutableStateOf(""); private set
     /** Last emotion tag from the AI (happy, playful...). Used by the avatar in Phase 4. */
     var emotion by mutableStateOf("neutral"); private set
-    var voices by mutableStateOf<List<Voice>>(emptyList()); private set
+    /** Last problem with the Gemini voice ("" = none). Shown in Settings. */
+    var humanNote by mutableStateOf(""); private set
 
     init {
         tts = TextToSpeech(appContext) { status ->
@@ -91,25 +112,18 @@ class VoiceController(context: Context, private val store: SettingsStore) {
                 main.post { utteranceFinished() }
             }
         })
-        voices = (t.voices ?: emptySet())
-            .filter { it.locale.language == "en" || it.locale.language == "hi" }
-            .filter { !it.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) }
     }
 
     private fun utteranceFinished() {
         if (pendingSpeech > 0) pendingSpeech--
-        if (pendingSpeech == 0 && state == NovaState.Speaking) state = NovaState.Idle
+        if (pendingSpeech == 0 && state == NovaState.Speaking && !human.busy) state = NovaState.Idle
     }
-
-    /** Installed voices for "en" or "hi", Indian ones first. */
-    fun voicesFor(lang: String): List<Voice> =
-        voices.filter { it.locale.language == lang }
-            .sortedWith(compareByDescending<Voice> { it.locale.country == "IN" }.thenBy { it.name })
 
     /** Runs typed/saved text exactly like something the user said (used by routines). */
     fun submitText(text: String) {
         generation++
         thinkingJob?.cancel()
+        human.stop()
         tts?.stop()
         recognizer?.cancel()
         level = 0f
@@ -131,6 +145,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             NovaState.Speaking, NovaState.Thinking -> {
                 generation++
                 thinkingJob?.cancel()
+                human.stop()
                 tts?.stop()
                 pendingSpeech = 0
                 startListening()
@@ -244,11 +259,11 @@ class VoiceController(context: Context, private val store: SettingsStore) {
                         if (firstSentence) {
                             emotion = emo
                             message = sentence
-                            speak(sentence, flush = true)
+                            speak(sentence, flush = true, more = true)
                             firstSentence = false
                         } else {
                             message = "$message $sentence"
-                            speak(sentence, flush = false)
+                            speak(sentence, flush = false, more = true)
                         }
                     }
                 }
@@ -259,10 +274,20 @@ class VoiceController(context: Context, private val store: SettingsStore) {
                     emotion = r.emotion
                     message = r.text
                     speak(r.text)
+                    if (state == NovaState.Thinking && !human.busy) {
+                        state = if (pendingSpeech > 0) NovaState.Speaking else NovaState.Idle
+                    }
                 } else {
                     emotion = r.emotion
+                    // Sentences are delivered through main.post, so finish in the same queue to keep order.
+                    main.post {
+                        if (myGen != generation) return@post
+                        finishSpeech()
+                        if (state == NovaState.Thinking && !human.busy) {
+                            state = if (pendingSpeech > 0) NovaState.Speaking else NovaState.Idle
+                        }
+                    }
                 }
-                if (state == NovaState.Thinking) state = if (pendingSpeech > 0) NovaState.Speaking else NovaState.Idle
             } catch (e: Exception) {
                 if (myGen != generation) return@launch
                 state = NovaState.Idle
@@ -295,19 +320,37 @@ class VoiceController(context: Context, private val store: SettingsStore) {
 
     private fun hasDevanagari(text: String) = text.any { it in '\u0900'..'\u097F' }
 
-    fun speak(text: String, flush: Boolean = true) {
+    /**
+     * Speaks [text]. [flush] starts a new reply (stops the old one). [more] = true when more
+     * sentences of the same reply will follow; call [finishSpeech] after the last one.
+     */
+    fun speak(text: String, flush: Boolean = true, more: Boolean = false) {
+        if (flush) humanReply = human.available()
+        if (humanReply) {
+            if (flush) {
+                tts?.stop()
+                pendingSpeech = 0
+                human.begin()
+            }
+            human.add(text, emotion)
+            if (!more) human.end()
+            return
+        }
+        speakAndroid(text, flush)
+    }
+
+    private fun finishSpeech() {
+        if (humanReply) human.end()
+    }
+
+    /** The phone's own (Android) voice. Used when the human voice is off or fails. */
+    private fun speakAndroid(text: String, flush: Boolean) {
         val t = tts ?: return
         val hindi = hasDevanagari(text)
-        val savedName = if (hindi) store.voiceHi else store.voiceEn
-        val chosen = if (savedName.isNotEmpty()) voices.firstOrNull { it.name == savedName } else null
-        if (chosen != null) {
-            t.setVoice(chosen)
-        } else {
-            val result = t.setLanguage(if (hindi) Locale("hi", "IN") else Locale("en", "IN"))
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                message = "Is bhasha ki voice install nahi hai. Phone Settings → Text-to-speech se voice data download karo."
-                return
-            }
+        val result = t.setLanguage(if (hindi) Locale("hi", "IN") else Locale("en", "IN"))
+        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+            message = "Is bhasha ki voice install nahi hai. Phone Settings → Text-to-speech se voice data download karo."
+            return
         }
         t.setSpeechRate(store.speed)
         t.setPitch(store.pitch)
@@ -317,11 +360,12 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     }
 
     /** Plays a short sample so the user can compare voices and sliders. */
-    fun preview(lang: String) {
-        speak(if (lang == "hi") "नमस्ते, मैं नोवा हूँ। तुम्हारी मदद के लिए तैयार हूँ।" else "Hello, I am Nova. Ready to help you.")
+    fun preview() {
+        speak("नमस्ते, मैं नोवा हूँ। बताओ, आज मैं तुम्हारी क्या मदद करूँ?")
     }
 
     fun release() {
+        human.release()
         scope.cancel()
         recognizer?.destroy()
         recognizer = null

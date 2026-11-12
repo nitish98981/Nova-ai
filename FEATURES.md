@@ -7,7 +7,8 @@
 | Settings (language, speed, pitch, voice choice, encrypted keys) | Implemented |
 | Permissions dashboard (mic, notifications) | Implemented |
 | Speech-to-text (Hinglish/Hindi/English, needs internet) | Implemented |
-| Text-to-speech with speed, pitch, voice choice | Implemented |
+| Human-sounding voice (Gemini text-to-speech, 10 voices to choose, emotion-based style, speed control) | Implemented (untested), needs Gemini key and internet |
+| Phone (Android) voice as automatic backup | Implemented (voice list removed, uses phone default) |
 | Interrupt NOVA (tap mic while she speaks or thinks) | Implemented |
 | Gemini AI brain | Implemented (needs your API key) |
 | OpenRouter, NVIDIA and custom OpenAI-compatible brains | Implemented (need your keys and model names) |

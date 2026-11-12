@@ -15,6 +15,11 @@ enum class VoiceLanguage(val label: String) {
     ENGLISH("English")
 }
 
+enum class VoiceEngine(val label: String) {
+    HUMAN("Human (Gemini)"),
+    PHONE("Phone (Android)")
+}
+
 enum class BrainChoice(val label: String) {
     AUTO("Auto"),
     GEMINI("Gemini"),
@@ -67,8 +72,14 @@ class SettingsStore(context: Context) {
     private var _pitch by mutableFloatStateOf(prefs.getFloat("pitch", 1.1f))
     private var _geminiKey by mutableStateOf(prefs.getString("gemini_key", "") ?: "")
     private var _openAiKey by mutableStateOf(prefs.getString("openai_key", "") ?: "")
-    private var _voiceEn by mutableStateOf(prefs.getString("voice_en", "") ?: "")
-    private var _voiceHi by mutableStateOf(prefs.getString("voice_hi", "") ?: "")
+    private var _voiceEngine by mutableStateOf(
+        runCatching { VoiceEngine.valueOf(prefs.getString("voice_engine", "HUMAN")!!) }
+            .getOrDefault(VoiceEngine.HUMAN)
+    )
+    private var _humanVoice by mutableStateOf(prefs.getString("human_voice", "Leda") ?: "Leda")
+    private var _ttsModel by mutableStateOf(
+        prefs.getString("tts_model", "gemini-3.8-flash-lite-tts") ?: "gemini-3.8-flash-lite-tts"
+    )
     private var _showAvatar by mutableStateOf(prefs.getBoolean("show_avatar", true))
     private var _phoneControl by mutableStateOf(prefs.getBoolean("phone_control", false))
     private var _brain by mutableStateOf(
@@ -107,15 +118,19 @@ class SettingsStore(context: Context) {
         get() = _openAiKey
         set(v) { _openAiKey = v; prefs.edit().putString("openai_key", v).apply() }
 
-    /** Name of the chosen English/Hinglish TTS voice ("" = phone default). */
-    var voiceEn: String
-        get() = _voiceEn
-        set(v) { _voiceEn = v; prefs.edit().putString("voice_en", v).apply() }
+    /** HUMAN = natural Gemini voice, PHONE = Android's own voice. */
+    var voiceEngine: VoiceEngine
+        get() = _voiceEngine
+        set(v) { _voiceEngine = v; prefs.edit().putString("voice_engine", v.name).apply() }
 
-    /** Name of the chosen Hindi TTS voice ("" = phone default). */
-    var voiceHi: String
-        get() = _voiceHi
-        set(v) { _voiceHi = v; prefs.edit().putString("voice_hi", v).apply() }
+    /** Name of the Gemini studio voice (Leda, Aoede, Kore...). */
+    var humanVoice: String
+        get() = _humanVoice
+        set(v) { _humanVoice = v; prefs.edit().putString("human_voice", v).apply() }
+
+    var ttsModel: String
+        get() = _ttsModel
+        set(v) { _ttsModel = v; prefs.edit().putString("tts_model", v).apply() }
 
     /** Which AI brain to try first. Others are used automatically if it fails. */
     var brain: BrainChoice
