@@ -45,6 +45,10 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     private val router = CommandRouter(appContext, store)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var thinkingJob: Job? = null
+    /** Bumped whenever a reply is interrupted or replaced, so late sentences from the old one are dropped. */
+    private var generation = 0
+    /** Number of sentences queued in TTS and not finished yet. */
+    private var pendingSpeech = 0
 
     var state by mutableStateOf(NovaState.Idle); private set
     var heard by mutableStateOf(""); private set
@@ -75,21 +79,26 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             }
 
             override fun onDone(utteranceId: String?) {
-                main.post { if (state == NovaState.Speaking) state = NovaState.Idle }
+                main.post { utteranceFinished() }
             }
 
             override fun onStop(utteranceId: String?, interrupted: Boolean) {
-                main.post { if (state == NovaState.Speaking) state = NovaState.Idle }
+                main.post { utteranceFinished() }
             }
 
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
-                main.post { if (state == NovaState.Speaking) state = NovaState.Idle }
+                main.post { utteranceFinished() }
             }
         })
         voices = (t.voices ?: emptySet())
             .filter { it.locale.language == "en" || it.locale.language == "hi" }
             .filter { !it.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) }
+    }
+
+    private fun utteranceFinished() {
+        if (pendingSpeech > 0) pendingSpeech--
+        if (pendingSpeech == 0 && state == NovaState.Speaking) state = NovaState.Idle
     }
 
     /** Installed voices for "en" or "hi", Indian ones first. */
@@ -105,12 +114,11 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     fun toggle() {
         when (state) {
             NovaState.Listening -> recognizer?.stopListening()
-            NovaState.Speaking -> {
-                tts?.stop()
-                startListening()
-            }
-            NovaState.Thinking -> {
+            NovaState.Speaking, NovaState.Thinking -> {
+                generation++
                 thinkingJob?.cancel()
+                tts?.stop()
+                pendingSpeech = 0
                 startListening()
             }
             NovaState.Idle -> startListening()
@@ -135,6 +143,9 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, recognitionTag())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            // Stop waiting for more words sooner after the user finishes speaking.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 700L)
         }
         recognizer = r
         heard = ""
@@ -208,15 +219,38 @@ class VoiceController(context: Context, private val store: SettingsStore) {
         state = NovaState.Thinking
         message = "Soch rahi hoon…"
         source = ""
+        val myGen = ++generation
         thinkingJob = scope.launch {
             try {
-                val r = brain.reply(text)
-                emotion = r.emotion
-                message = r.text
+                var firstSentence = true
+                val r = brain.reply(text) { emo, sentence ->
+                    // Called from a background thread while the answer is still streaming in.
+                    main.post {
+                        if (myGen != generation) return@post
+                        if (firstSentence) {
+                            emotion = emo
+                            message = sentence
+                            speak(sentence, flush = true)
+                            firstSentence = false
+                        } else {
+                            message = "$message $sentence"
+                            speak(sentence, flush = false)
+                        }
+                    }
+                }
+                if (myGen != generation) return@launch
                 source = r.source
-                state = NovaState.Idle
-                speak(r.text)
+                if (firstSentence) {
+                    // Nothing was streamed (offline brain): speak the whole answer now.
+                    emotion = r.emotion
+                    message = r.text
+                    speak(r.text)
+                } else {
+                    emotion = r.emotion
+                }
+                if (state == NovaState.Thinking) state = if (pendingSpeech > 0) NovaState.Speaking else NovaState.Idle
             } catch (e: Exception) {
+                if (myGen != generation) return@launch
                 state = NovaState.Idle
                 message = "Kuch gadbad ho gayi: ${e.message}"
             }
@@ -247,7 +281,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
 
     private fun hasDevanagari(text: String) = text.any { it in '\u0900'..'\u097F' }
 
-    fun speak(text: String) {
+    fun speak(text: String, flush: Boolean = true) {
         val t = tts ?: return
         val hindi = hasDevanagari(text)
         val savedName = if (hindi) store.voiceHi else store.voiceEn
@@ -263,7 +297,9 @@ class VoiceController(context: Context, private val store: SettingsStore) {
         }
         t.setSpeechRate(store.speed)
         t.setPitch(store.pitch)
-        t.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nova-" + System.nanoTime())
+        pendingSpeech++
+        if (state == NovaState.Thinking) state = NovaState.Speaking
+        t.speak(text, if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, null, "nova-" + System.nanoTime())
     }
 
     /** Plays a short sample so the user can compare voices and sliders. */

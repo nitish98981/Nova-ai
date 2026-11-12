@@ -21,17 +21,26 @@ class Brain(private val store: SettingsStore) {
             "c\\+\\+|c#|कोड|कोडिंग|प्रोग्राम|डीबग|एरर|फंक्शन"
     )
     private val unspeakable = Regex("[*_#`~\\p{So}\\uFE0F]")
+    private val sentenceEnd = Regex("[.!?\u0964]+\\s")
+    private val softBreak = Regex("[,;:]\\s")
 
-    suspend fun reply(userText: String): BrainReply {
+    /**
+     * Streams the answer. [onSentence] is called (possibly from a background thread) with the emotion and
+     * each finished sentence as soon as it is ready, so NOVA can start speaking before the full answer exists.
+     */
+    suspend fun reply(userText: String, onSentence: (emotion: String, sentence: String) -> Unit = { _, _ -> }): BrainReply {
         val turns = history.takeLast(MAX_HISTORY) + ChatTurn(true, userText)
         val notes = ArrayList<String>()
         var result: BrainReply? = null
 
         val providers = providers(notes, userText)
         for (p in providers) {
+            val streamer = SentenceStreamer(onSentence)
             try {
-                val raw = p.generate(SYSTEM_PROMPT, turns)
-                result = finish(raw, p.label)
+                p.stream(SYSTEM_PROMPT, turns) { streamer.push(it) }
+                streamer.finish()
+                if (streamer.spoken.isBlank()) throw BrainException("khali jawab")
+                result = BrainReply(streamer.spoken.trim(), streamer.emotion, p.label)
                 if (notes.isNotEmpty()) {
                     result = result.copy(source = result.source + " • pehle fail: " + notes.joinToString(" | "))
                 }
@@ -39,6 +48,12 @@ class Brain(private val store: SettingsStore) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (streamer.emittedCount > 0) {
+                    // Some sentences were already spoken; keep them instead of restarting with another provider.
+                    streamer.finish()
+                    result = BrainReply(streamer.spoken.trim(), streamer.emotion, p.label + " (adhura)")
+                    break
+                }
                 notes += "${p.label}: ${e.message}".take(100)
             }
         }
@@ -52,6 +67,77 @@ class Brain(private val store: SettingsStore) {
         history += ChatTurn(false, out.text)
         while (history.size > MAX_HISTORY) history.removeAt(0)
         return out
+    }
+
+    /** Cuts a streamed answer into speakable sentences and pulls the [emotion] tag off the front. */
+    private inner class SentenceStreamer(private val onSentence: (String, String) -> Unit) {
+        private val buf = StringBuilder()
+        private val full = StringBuilder()
+        private var tagDone = false
+        var emotion = "neutral"
+            private set
+        var emittedCount = 0
+            private set
+        val spoken: String get() = full.toString()
+
+        fun push(delta: String) {
+            buf.append(delta)
+            if (!tagDone) {
+                val s = buf.toString().trimStart()
+                if (s.isEmpty()) return
+                if (s.startsWith("[")) {
+                    val m = emotionTag.find(buf.toString())
+                    if (m != null) {
+                        emotion = m.groupValues[1].lowercase()
+                        buf.delete(0, m.range.last + 1)
+                        tagDone = true
+                    } else if (s.length <= 24) {
+                        return // tag may still be arriving
+                    } else {
+                        tagDone = true
+                    }
+                } else {
+                    tagDone = true
+                }
+            }
+            drain()
+        }
+
+        fun finish() {
+            if (!tagDone) {
+                val m = emotionTag.find(buf.toString())
+                if (m != null) {
+                    emotion = m.groupValues[1].lowercase()
+                    buf.delete(0, m.range.last + 1)
+                }
+                tagDone = true
+            }
+            drain()
+            if (buf.isNotBlank()) emit(buf.toString())
+            buf.setLength(0)
+        }
+
+        private fun drain() {
+            while (true) {
+                val text = buf.toString()
+                var m = sentenceEnd.find(text)
+                // First sentence: allow a comma break so speech starts sooner.
+                if (m == null && emittedCount == 0 && text.length >= 40) {
+                    m = softBreak.find(text, 20)
+                }
+                if (m == null) return
+                emit(text.substring(0, m.range.last + 1))
+                buf.delete(0, m.range.last + 1)
+            }
+        }
+
+        private fun emit(raw: String) {
+            val clean = raw.replace(unspeakable, "").trim()
+            if (clean.isEmpty()) return
+            emittedCount++
+            full.append(clean).append(' ')
+            onSentence(emotion, clean)
+        }
     }
 
     private fun providers(notes: MutableList<String>, userText: String): List<AiProvider> {
@@ -97,14 +183,6 @@ class Brain(private val store: SettingsStore) {
             notes += "${store.brain.label} ki key nahi hai"
         }
         return listOfNotNull(preferred) + all.filter { it !== preferred }
-    }
-
-    private fun finish(raw: String, label: String): BrainReply {
-        val tag = emotionTag.find(raw)
-        val emotion = tag?.groupValues?.get(1)?.lowercase() ?: "neutral"
-        val text = raw.replace(emotionTag, "").replace(unspeakable, "").trim()
-        if (text.isEmpty()) throw BrainException("khali jawab")
-        return BrainReply(text, emotion, label)
     }
 
     companion object {

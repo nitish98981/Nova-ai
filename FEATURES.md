@@ -32,6 +32,7 @@
 | Alarm and timer (Android clock app) | Implemented |
 | Play Store search (user installs manually) | Implemented |
 | Accessibility: Back, Home, Recents, scroll, tap by text, read screen | Implemented, untested; blocked on payment/bank/password/installer apps |
+| Fast replies: streaming answers, NOVA speaks sentence by sentence, minimal Gemini thinking, shorter timeouts, quicker end-of-speech | Implemented (Phase 5a, untested) |
 | Multi-step tasks with AI planning | Planned |
 | Floating NOVA bubble to give commands while inside other apps | Planned (Phase 5b) |
 | Scanner, coding assistant, Play Store | Planned: Phase 6 |
