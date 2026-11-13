@@ -2,7 +2,9 @@ package com.nova.ai.brain
 
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.UnknownHostException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -19,13 +21,13 @@ internal object Http {
         url: String,
         headers: Map<String, String>,
         body: String,
-        readTimeoutMs: Int = 20000
+        readTimeoutMs: Int = 30000
     ): String =
         withContext(Dispatchers.IO) {
             val c = URL(url).openConnection() as HttpURLConnection
             try {
                 c.requestMethod = "POST"
-                c.connectTimeout = 8000
+                c.connectTimeout = 12000
                 c.readTimeout = readTimeoutMs
                 c.doOutput = true
                 c.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -56,8 +58,9 @@ internal object Http {
             val c = URL(url).openConnection() as HttpURLConnection
             try {
                 c.requestMethod = "POST"
-                c.connectTimeout = 6000
-                c.readTimeout = 10000
+                // Phone networks can be slow: allow 12 s to connect and 25 s for the first word.
+                c.connectTimeout = 12000
+                c.readTimeout = 25000
                 c.doOutput = true
                 c.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 c.setRequestProperty("Accept", "text/event-stream")
@@ -75,6 +78,10 @@ internal object Http {
                         if (line.isNotEmpty()) onLine(line)
                     }
                 }
+            } catch (e: SocketTimeoutException) {
+                throw BrainException("net bahut dheema hai (time out)")
+            } catch (e: UnknownHostException) {
+                throw BrainException("internet nahi hai")
             } catch (e: IOException) {
                 throw BrainException("internet/connection problem")
             } finally {

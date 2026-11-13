@@ -441,6 +441,32 @@ class VoiceController(context: Context, private val store: SettingsStore) {
 
     private var wakeRecognizer: SpeechRecognizer? = null
     private var foreground = true
+    private var nextWakeAt = 0L
+
+    // The Google recognizer plays a "tung" sound every time it starts. While NOVA waits for her name this
+    // would repeat every few seconds, so the media volume is muted during wake listening and restored after.
+    private val audio = appContext.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+    private var beepMuted = false
+
+    private fun muteBeep() {
+        if (beepMuted) return
+        try {
+            if (!audio.isStreamMute(android.media.AudioManager.STREAM_MUSIC)) {
+                audio.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_MUTE, 0)
+                beepMuted = true
+            }
+        } catch (e: Exception) {
+        }
+    }
+
+    private fun unmuteBeep() {
+        if (!beepMuted) return
+        beepMuted = false
+        try {
+            audio.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_UNMUTE, 0)
+        } catch (e: Exception) {
+        }
+    }
 
     /** Wake-word listening only runs while the NOVA screen is open. */
     fun setForeground(value: Boolean) {
@@ -453,7 +479,13 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             PackageManager.PERMISSION_GRANTED
         val want = store.wakeWord && foreground && micOk && state == NovaState.Idle && !human.busy &&
             pendingSpeech == 0 && !replying && thinkingJob?.isActive != true
-        if (want && !wakeListening) startWake() else if (!want && wakeListening) stopWake()
+        if (want && !wakeListening) {
+            if (android.os.SystemClock.elapsedRealtime() >= nextWakeAt) startWake()
+        } else if (!want && wakeListening) {
+            stopWake()
+        } else if (!want) {
+            unmuteBeep()
+        }
     }
 
     private fun startWake() {
@@ -470,6 +502,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
         }
         wakeRecognizer = r
         wakeListening = true
+        muteBeep()
         r.startListening(intent)
     }
 
@@ -477,6 +510,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
         wakeListening = false
         wakeRecognizer?.destroy()
         wakeRecognizer = null
+        unmuteBeep()
     }
 
     /**
@@ -503,7 +537,12 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             wakeListening = false
             val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull().orEmpty()
-            val command = wakeCommand(text) ?: return
+            val command = wakeCommand(text)
+            if (command == null) {
+                nextWakeAt = android.os.SystemClock.elapsedRealtime() + 1000
+                return
+            }
+            unmuteBeep()
             if (command.isBlank()) {
                 startListening()
             } else {
@@ -516,6 +555,8 @@ class VoiceController(context: Context, private val store: SettingsStore) {
 
         override fun onError(error: Int) {
             wakeListening = false
+            // Back off a little so a silent room does not restart the recognizer non-stop.
+            nextWakeAt = android.os.SystemClock.elapsedRealtime() + 1500
         }
     }
 
