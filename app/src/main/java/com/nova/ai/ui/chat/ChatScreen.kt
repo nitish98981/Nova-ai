@@ -29,7 +29,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nova.ai.data.BrainChoice
+import com.nova.ai.data.SettingsStore
 import com.nova.ai.ui.common.HintText
+import com.nova.ai.ui.common.TextInput
+import com.nova.ai.ui.tools.ToolChip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import com.nova.ai.ui.theme.NovaColors
 import com.nova.ai.ui.tools.ToolButton
 import com.nova.ai.ui.tools.ToolHeader
@@ -38,7 +45,7 @@ import com.nova.ai.voice.VoiceController
 
 /** Type to NOVA (same brain and voice as the mic) and see the whole conversation. */
 @Composable
-fun ChatScreen(voice: VoiceController, onBack: () -> Unit, onMic: () -> Unit) {
+fun ChatScreen(store: SettingsStore, voice: VoiceController, onBack: () -> Unit, onMic: () -> Unit) {
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val liveText = if (voice.replying) voice.message else ""
@@ -56,6 +63,7 @@ fun ChatScreen(voice: VoiceController, onBack: () -> Unit, onMic: () -> Unit) {
             .imePadding()
     ) {
         ToolHeader("Chat", onBack)
+        ModelPicker(store)
 
         if (count == 0) {
             Column(Modifier.weight(1f).padding(horizontal = 20.dp)) {
@@ -118,6 +126,77 @@ private fun Bubble(line: ChatLine) {
             Text(line.text, color = NovaColors.Text, fontSize = 15.sp, lineHeight = 21.sp)
             if (line.note.isNotBlank()) {
                 Text(line.note, color = NovaColors.Muted, fontSize = 10.sp, lineHeight = 14.sp)
+            }
+        }
+    }
+}
+
+private fun choiceLabel(c: BrainChoice) = if (c == BrainChoice.CUSTOM) "LLMsRelay" else c.label
+
+private fun modelOf(store: SettingsStore, c: BrainChoice): String = when (c) {
+    BrainChoice.GEMINI -> store.geminiModel
+    BrainChoice.OPENROUTER -> store.openRouterModel
+    BrainChoice.NVIDIA -> store.nvidiaModel
+    BrainChoice.CUSTOM -> store.openAiModel
+    else -> ""
+}
+
+private fun setModel(store: SettingsStore, c: BrainChoice, v: String) {
+    when (c) {
+        BrainChoice.GEMINI -> store.geminiModel = v
+        BrainChoice.OPENROUTER -> store.openRouterModel = v
+        BrainChoice.NVIDIA -> store.nvidiaModel = v
+        BrainChoice.CUSTOM -> store.openAiModel = v
+        else -> {}
+    }
+}
+
+private fun hasKey(store: SettingsStore, c: BrainChoice): Boolean = when (c) {
+    BrainChoice.GEMINI -> store.geminiKey.isNotBlank()
+    BrainChoice.OPENROUTER -> store.openRouterKey.isNotBlank()
+    BrainChoice.NVIDIA -> store.nvidiaKey.isNotBlank()
+    BrainChoice.CUSTOM -> store.openAiKey.isNotBlank()
+    else -> true
+}
+
+/** One line "Model: Auto ▾" that opens the list of AI providers and the model name of the chosen one. */
+@Composable
+private fun ModelPicker(store: SettingsStore) {
+    var open by remember { mutableStateOf(false) }
+    val current = store.brain
+    val model = modelOf(store, current)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "Model: " + choiceLabel(current) + (if (model.isNotBlank()) " • $model" else "") + if (open) "  ▴" else "  ▾",
+            color = NovaColors.Lavender,
+            fontSize = 14.sp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(NovaColors.Panel)
+                .border(1.dp, NovaColors.PanelEdge, RoundedCornerShape(12.dp))
+                .clickable { open = !open }
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        )
+        if (open) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BrainChoice.values().forEach { c ->
+                    ToolChip(choiceLabel(c), current == c, { store.brain = c })
+                }
+            }
+            when {
+                current == BrainChoice.AUTO ->
+                    HintText("Auto: NOVA kaam dekh kar khud chunti hai. Aam baatein Gemini se, coding OpenRouter/LLMsRelay se, aur ek na chale to agla.")
+                current == BrainChoice.OFFLINE ->
+                    HintText("Offline: koi AI nahi, sirf samay, date aur calculation.")
+                else -> {
+                    TextInput("Model ka naam", model) { setModel(store, current, it) }
+                    if (!hasKey(store, current)) {
+                        HintText("Is provider ki key nahi hai. Customise → Add API mein daalo, nahi to NOVA dusra provider chalayegi.")
+                    } else {
+                        HintText("Ye pehle chalega; fail hua to NOVA khud agla provider try karegi.")
+                    }
+                }
             }
         }
     }

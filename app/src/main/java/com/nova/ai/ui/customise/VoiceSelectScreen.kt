@@ -3,6 +3,14 @@ package com.nova.ai.ui.customise
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import com.nova.ai.voice.NovaState
 import androidx.compose.ui.unit.sp
 import com.nova.ai.data.SettingsStore
 import com.nova.ai.data.VoiceEngine
@@ -18,6 +26,16 @@ import com.nova.ai.voice.VoiceController
 
 @Composable
 fun VoiceSelectScreen(store: SettingsStore, voice: VoiceController, onBack: () -> Unit) {
+    var token by remember { mutableIntStateOf(0) }
+    var waiting by remember { mutableStateOf(false) }
+    LaunchedEffect(token) {
+        if (token > 0) {
+            waiting = true
+            delay(8000)
+            waiting = false
+        }
+    }
+
     ScreenFrame("Select voice", onBack) {
         SectionLabel("NOVA ki awaaz")
         VoiceEngine.values().forEach { engine ->
@@ -31,6 +49,7 @@ fun VoiceSelectScreen(store: SettingsStore, voice: VoiceController, onBack: () -
             HumanVoice.VOICES.forEach { (name, desc) ->
                 OptionRow("$name — $desc", store.humanVoice == name) {
                     store.humanVoice = name
+                    token++
                     voice.preview()
                 }
             }
@@ -44,7 +63,13 @@ fun VoiceSelectScreen(store: SettingsStore, voice: VoiceController, onBack: () -
             valueRange = 0.5f..2f
         )
 
-        WideButton("Test awaaz sunao", { voice.preview() })
+        WideButton("Test awaaz sunao", { token++; voice.preview() })
+        if (waiting && voice.state != NovaState.Speaking) {
+            Text(
+                "Awaaz la rahi hoon… (pehli baar 1-2 second lagte hain, dobara usi voice par turant bajegi)",
+                color = NovaColors.Lavender, fontSize = 13.sp
+            )
+        }
         if (voice.humanNote.isNotBlank()) {
             Text("Human voice abhi nahi chali: ${voice.humanNote}", color = NovaColors.Cyan, fontSize = 13.sp)
         }

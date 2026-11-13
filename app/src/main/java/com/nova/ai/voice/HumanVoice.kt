@@ -35,6 +35,7 @@ import org.json.JSONObject
 class HumanVoice(
     private val store: SettingsStore,
     private val scope: CoroutineScope,
+    private val cacheDir: java.io.File,
     private val callbacks: Callbacks
 ) {
     interface Callbacks {
@@ -136,6 +137,11 @@ class HumanVoice(
     }
 
     private suspend fun synth(key: String, model: String, voice: String, text: String, emo: String): Pcm? {
+        // Short phrases (voice samples, "Okayyy! YouTube khol rahi hoon") are kept on the phone so that
+        // saying them again is instant. Long answers are never stored.
+        val cacheable = text.length <= 90
+        val cacheKey = cacheName(model, voice, styleFor(emo), text)
+        if (cacheable) readCache(cacheKey)?.let { return it }
         val models = listOf(model, if (model == DEFAULT_MODEL) "gemini-3.8-flash-tts" else DEFAULT_MODEL).distinct()
         var lastError = ""
         for (m in models) {
@@ -148,6 +154,7 @@ class HumanVoice(
                 )
                 val pcm = parse(resp)
                 if (pcm != null) {
+                    if (cacheable) writeCache(cacheKey, pcm)
                     withContext(Dispatchers.Main.immediate) { callbacks.onNote("") }
                     return pcm
                 }
@@ -164,6 +171,46 @@ class HumanVoice(
         }
         withContext(Dispatchers.Main.immediate) { callbacks.onNote(lastError.take(160)) }
         return null
+    }
+
+    private fun cacheName(model: String, voice: String, style: String, text: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-1")
+            .digest("$model|$voice|$style|$text".toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    private fun readCache(name: String): Pcm? = try {
+        val f = java.io.File(cacheDir, "tts/$name.pcm")
+        if (!f.exists()) {
+            null
+        } else {
+            val all = f.readBytes()
+            val rate = ((all[0].toInt() and 0xFF) shl 24) or ((all[1].toInt() and 0xFF) shl 16) or
+                ((all[2].toInt() and 0xFF) shl 8) or (all[3].toInt() and 0xFF)
+            f.setLastModified(System.currentTimeMillis())
+            Pcm(all.copyOfRange(4, all.size), rate)
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun writeCache(name: String, pcm: Pcm) {
+        try {
+            val dir = java.io.File(cacheDir, "tts").apply { mkdirs() }
+            val out = ByteArray(4 + pcm.bytes.size)
+            out[0] = (pcm.rate ushr 24).toByte()
+            out[1] = (pcm.rate ushr 16).toByte()
+            out[2] = (pcm.rate ushr 8).toByte()
+            out[3] = pcm.rate.toByte()
+            System.arraycopy(pcm.bytes, 0, out, 4, pcm.bytes.size)
+            java.io.File(dir, "$name.pcm").writeBytes(out)
+            val files = dir.listFiles()
+            if (files != null && files.size > 80) {
+                files.sortedBy { it.lastModified() }.take(files.size - 80).forEach { it.delete() }
+            }
+        } catch (e: Exception) {
+            // cache is only a speed-up
+        }
     }
 
     private fun requestBody(voice: String, text: String, emo: String): String {

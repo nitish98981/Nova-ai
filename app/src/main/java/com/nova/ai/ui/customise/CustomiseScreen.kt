@@ -19,7 +19,7 @@ fun CustomiseScreen(
     onVoice: () -> Unit,
     onAccessibility: () -> Unit,
     onLanguage: () -> Unit,
-    onMoreSettings: () -> Unit
+    onWake: () -> Unit
 ) {
     val context = LocalContext.current
     val enabled = Settings.Secure.getString(
@@ -50,6 +50,6 @@ fun CustomiseScreen(
             onAccessibility
         )
         MenuCard("Language", store.language.label, onLanguage)
-        MenuCard("Aur settings", "Speed, pitch, avatar, AI ka mode aur model ke naam", onMoreSettings)
+        MenuCard("Hey Nova", if (store.wakeWord) "Chalu • app khuli ho tab naam se bulao" else "Band", onWake)
     }
 }

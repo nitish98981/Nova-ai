@@ -14,6 +14,9 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.core.content.ContextCompat
 import com.nova.ai.data.SettingsStore
 import com.nova.ai.ui.chat.ChatScreen
@@ -22,6 +25,7 @@ import com.nova.ai.ui.customise.ApiWizardScreen
 import com.nova.ai.ui.customise.CustomiseScreen
 import com.nova.ai.ui.customise.LanguageScreen
 import com.nova.ai.ui.customise.VoiceSelectScreen
+import com.nova.ai.ui.customise.WakeWordScreen
 import com.nova.ai.ui.home.HomeScreen
 import com.nova.ai.ui.imagegen.ImageGenScreen
 import com.nova.ai.ui.more.MoreScreen
@@ -36,7 +40,7 @@ import com.nova.ai.voice.VoiceController
 
 private enum class Screen {
     Home, Customise, Api, SelectVoice, Accessibility, Language,
-    Notifications, Chat, ImageGen, Code, More, Scanner, Routines, Permissions, Settings
+    Notifications, Chat, ImageGen, Code, More, Scanner, Routines, Permissions, Settings, WakeWord
 }
 
 @Composable
@@ -52,6 +56,16 @@ fun NovaApp(store: SettingsStore) {
 
     DisposableEffect(Unit) {
         onDispose { voice.release() }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) voice.setForeground(true)
+            if (event == Lifecycle.Event.ON_PAUSE) voice.setForeground(false)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val micLauncher = rememberLauncherForActivityResult(
@@ -84,6 +98,7 @@ fun NovaApp(store: SettingsStore) {
                 emotion = voice.emotion,
                 showAvatar = store.showAvatar,
                 unread = voice.unread,
+                wakeOn = voice.wakeListening,
                 onMic = onMic,
                 onCustomise = { go(Screen.Customise) },
                 onNotifications = { go(Screen.Notifications) },
@@ -99,14 +114,15 @@ fun NovaApp(store: SettingsStore) {
                 onVoice = { go(Screen.SelectVoice) },
                 onAccessibility = { go(Screen.Accessibility) },
                 onLanguage = { go(Screen.Language) },
-                onMoreSettings = { go(Screen.Settings) }
+                onWake = { go(Screen.WakeWord) }
             )
             Screen.Api -> ApiWizardScreen(store) { back() }
             Screen.SelectVoice -> VoiceSelectScreen(store, voice) { back() }
             Screen.Accessibility -> AccessibilityScreen(store, { back() }, { go(Screen.Permissions) })
             Screen.Language -> LanguageScreen(store) { back() }
+            Screen.WakeWord -> WakeWordScreen(store) { back() }
             Screen.Notifications -> NotificationsScreen(voice) { back() }
-            Screen.Chat -> ChatScreen(voice, { back() }, onMic)
+            Screen.Chat -> ChatScreen(store, voice, { back() }, onMic)
             Screen.ImageGen -> ImageGenScreen(store) { back() }
             Screen.Code -> CodeAssistantScreen(voice) { back() }
             Screen.More -> MoreScreen(

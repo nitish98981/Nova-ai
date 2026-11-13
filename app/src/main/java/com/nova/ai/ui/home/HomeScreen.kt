@@ -59,6 +59,7 @@ fun HomeScreen(
     emotion: String,
     showAvatar: Boolean,
     unread: Int,
+    wakeOn: Boolean,
     onMic: () -> Unit,
     onCustomise: () -> Unit,
     onNotifications: () -> Unit,
@@ -152,7 +153,7 @@ fun HomeScreen(
         }
         Text(
             when (state) {
-                NovaState.Idle -> "Tap karke bolo"
+                NovaState.Idle -> if (wakeOn) "\"Hey Nova\" bolo ya tap karo" else "Tap karke bolo"
                 NovaState.Listening -> "Sun rahi hoon… dubara tap karo to ruk jaungi"
                 NovaState.Thinking -> "Soch rahi hoon… tap karke naya sawaal pucho"
                 NovaState.Speaking -> "Bol rahi hoon… tap karke beech mein roko"

@@ -52,3 +52,15 @@
 | Notifications screen: NOVA's recent actions and errors | Implemented |
 | Image generator (Gemini image model, save to gallery) | Implemented (untested); may need a billing-enabled Gemini key |
 | More: Scanner, Routines, Permissions, all settings | Implemented |
+
+## Round 3
+| Feature | Status |
+|---|---|
+| Customise: "Aur settings" removed, "Hey Nova" added | Implemented |
+| Human voice: short phrases cached on the phone (instant on repeat), "loading" hint on Select voice | Implemented (untested); first play of each voice still takes 1-2 s |
+| "Hey Nova" wake word while the app is open (uses Google speech recognition, off by default) | Implemented (untested); background wake word planned |
+| Chat: model/provider chooser at the top | Implemented |
+| Scanner opens camera directly (CameraX + ML Kit) | Implemented (untested) |
+| Barcode/QR read on the phone: UPI payment, links, WiFi, contacts, phone, geo, text | Implemented; payment is never confirmed by NOVA, user opens the payment app |
+| Product barcode -> name via Open Food Facts, ISBN -> book via Open Library | Implemented (food items mostly) |
+| Product/text recognition from camera frame with Gemini ("Pehchano" button) | Implemented; automatic continuous recognition not done |

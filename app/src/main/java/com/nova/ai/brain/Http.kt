@@ -83,6 +83,27 @@ internal object Http {
         }
     }
 
+    /** Simple GET. Returns the body, or null on any failure (offline, 404...). */
+    suspend fun getJson(url: String, headers: Map<String, String> = emptyMap()): String? =
+        withContext(Dispatchers.IO) {
+            val c = URL(url).openConnection() as HttpURLConnection
+            try {
+                c.requestMethod = "GET"
+                c.connectTimeout = 8000
+                c.readTimeout = 10000
+                headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+                if (c.responseCode in 200..299) {
+                    c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                } else {
+                    null
+                }
+            } catch (e: IOException) {
+                null
+            } finally {
+                c.disconnect()
+            }
+        }
+
     private fun errorMessage(body: String): String = try {
         val m = JSONObject(body).optJSONObject("error")?.optString("message").orEmpty()
         if (m.length > 140) m.take(140) + "…" else m

@@ -1,6 +1,8 @@
 package com.nova.ai.voice
 
 import android.content.Context
+import android.content.pm.PackageManager
+import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -11,6 +13,7 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.compose.runtime.getValue
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -54,7 +57,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
     private var thinkingJob: Job? = null
     /** True while the current reply is spoken by the Gemini (human) voice. */
     private var humanReply = false
-    private val human = HumanVoice(store, scope, object : HumanVoice.Callbacks {
+    private val human = HumanVoice(store, scope, appContext.cacheDir, object : HumanVoice.Callbacks {
         override fun onPlaybackStart() {
             state = NovaState.Speaking
         }
@@ -201,6 +204,7 @@ class VoiceController(context: Context, private val store: SettingsStore) {
             message = "Is phone mein speech recognition nahi mila. Google app update/install karo."
             return
         }
+        stopWake()
         recognizer?.destroy()
         val r = SpeechRecognizer.createSpeechRecognizer(appContext)
         r.setRecognitionListener(listener)
@@ -415,10 +419,11 @@ class VoiceController(context: Context, private val store: SettingsStore) {
 
     /** Plays a short sample so the user can compare voices and sliders. */
     fun preview() {
-        speak("नमस्ते, मैं नोवा हूँ। बताओ, आज मैं तुम्हारी क्या मदद करूँ?")
+        speak("नमस्ते, मैं नोवा हूँ।")
     }
 
     fun release() {
+        stopWake()
         human.release()
         scope.cancel()
         recognizer?.destroy()
@@ -428,7 +433,104 @@ class VoiceController(context: Context, private val store: SettingsStore) {
         tts = null
     }
 
+
+    // ------------------------------------------------------------------ "Hey Nova"
+
+    /** True while NOVA is quietly waiting to hear her name. */
+    var wakeListening by mutableStateOf(false); private set
+
+    private var wakeRecognizer: SpeechRecognizer? = null
+    private var foreground = true
+
+    /** Wake-word listening only runs while the NOVA screen is open. */
+    fun setForeground(value: Boolean) {
+        foreground = value
+        if (!value) stopWake()
+    }
+
+    private fun tickWake() {
+        val micOk = ContextCompat.checkSelfPermission(appContext, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        val want = store.wakeWord && foreground && micOk && state == NovaState.Idle && !human.busy &&
+            pendingSpeech == 0 && !replying && thinkingJob?.isActive != true
+        if (want && !wakeListening) startWake() else if (!want && wakeListening) stopWake()
+    }
+
+    private fun startWake() {
+        if (!SpeechRecognizer.isRecognitionAvailable(appContext)) return
+        wakeRecognizer?.destroy()
+        val r = SpeechRecognizer.createSpeechRecognizer(appContext)
+        r.setRecognitionListener(wakeListener)
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, recognitionTag())
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 700L)
+        }
+        wakeRecognizer = r
+        wakeListening = true
+        r.startListening(intent)
+    }
+
+    private fun stopWake() {
+        wakeListening = false
+        wakeRecognizer?.destroy()
+        wakeRecognizer = null
+    }
+
+    /**
+     * Returns null if the sentence is not addressed to NOVA, "" if it was only her name
+     * ("Hey Nova"), otherwise the command that came after her name.
+     */
+    private fun wakeCommand(text: String): String? {
+        val tokens = text.split(Regex("[^\\p{L}\\p{M}\\p{N}]+")).filter { it.isNotEmpty() }
+        val idx = tokens.indexOfFirst { it.lowercase(Locale.ROOT) in WAKE_NAMES }
+        if (idx < 0 || idx > 2) return null
+        return tokens.drop(idx + 1).joinToString(" ")
+    }
+
+    private val wakeListener = object : RecognitionListener {
+        override fun onReadyForSpeech(params: Bundle?) {}
+        override fun onBeginningOfSpeech() {}
+        override fun onRmsChanged(rmsdB: Float) {}
+        override fun onBufferReceived(buffer: ByteArray?) {}
+        override fun onEndOfSpeech() {}
+        override fun onEvent(eventType: Int, params: Bundle?) {}
+        override fun onPartialResults(partialResults: Bundle?) {}
+
+        override fun onResults(results: Bundle?) {
+            wakeListening = false
+            val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull().orEmpty()
+            val command = wakeCommand(text) ?: return
+            if (command.isBlank()) {
+                startListening()
+            } else {
+                heard = command
+                emotion = "neutral"
+                source = ""
+                respondTo(command)
+            }
+        }
+
+        override fun onError(error: Int) {
+            wakeListening = false
+        }
+    }
+
+    init {
+        scope.launch {
+            while (true) {
+                delay(700)
+                tickWake()
+            }
+        }
+    }
+
     companion object {
+        private val WAKE_NAMES = setOf("nova", "novaa", "नोवा", "नॉवा", "नोवां")
+
         const val GREETING =
             "Hey! Main NOVA hoon. Mic dabao aur mujhse baat karo."
     }
