@@ -90,6 +90,31 @@ internal object Http {
         }
     }
 
+    /** GET that tells you why it failed (throws BrainException) instead of returning null. */
+    suspend fun getText(url: String, headers: Map<String, String> = emptyMap()): String =
+        withContext(Dispatchers.IO) {
+            val c = URL(url).openConnection() as HttpURLConnection
+            try {
+                c.requestMethod = "GET"
+                c.connectTimeout = 12000
+                c.readTimeout = 25000
+                headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+                val code = c.responseCode
+                val stream = if (code in 200..299) c.inputStream else c.errorStream
+                val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
+                if (code !in 200..299) throw BrainException("HTTP $code ${errorMessage(text)}".trim(), code)
+                text
+            } catch (e: SocketTimeoutException) {
+                throw BrainException("net bahut dheema hai (time out)")
+            } catch (e: UnknownHostException) {
+                throw BrainException("internet nahi hai")
+            } catch (e: IOException) {
+                throw BrainException("internet/connection problem")
+            } finally {
+                c.disconnect()
+            }
+        }
+
     /** Simple GET. Returns the body, or null on any failure (offline, 404...). */
     suspend fun getJson(url: String, headers: Map<String, String> = emptyMap()): String? =
         withContext(Dispatchers.IO) {

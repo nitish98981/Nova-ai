@@ -29,6 +29,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.nova.ai.brain.ApiTester
+import com.nova.ai.brain.ModelCatalog
+import com.nova.ai.ui.common.ModelListDialog
 import com.nova.ai.data.BrainChoice
 import com.nova.ai.data.SettingsStore
 import com.nova.ai.ui.common.HintText
@@ -163,6 +168,10 @@ private fun hasKey(store: SettingsStore, c: BrainChoice): Boolean = when (c) {
 @Composable
 private fun ModelPicker(store: SettingsStore) {
     var open by remember { mutableStateOf(false) }
+    var showList by remember { mutableStateOf(false) }
+    var testing by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
     val current = store.brain
     val model = modelOf(store, current)
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -191,6 +200,23 @@ private fun ModelPicker(store: SettingsStore) {
                     HintText("Offline: koi AI nahi, sirf samay, date aur calculation.")
                 else -> {
                     TextInput("Model ka naam", model) { setModel(store, current, it) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ToolButton("Sab models dekho", { showList = true }, Modifier.weight(1f))
+                        ToolButton(
+                            if (testing) "Test ho raha…" else "Test karo",
+                            {
+                                scope.launch {
+                                    testing = true
+                                    val p = ModelCatalog.providerFor(current, store)
+                                    testResult = if (p == null) "Pehle is provider ki key daalo." else ApiTester.test(p).second
+                                    testing = false
+                                }
+                            },
+                            Modifier.weight(1f),
+                            enabled = !testing
+                        )
+                    }
+                    if (testResult.isNotBlank()) HintText(testResult)
                     if (!hasKey(store, current)) {
                         HintText("Is provider ki key nahi hai. Customise → Add API mein daalo, nahi to NOVA dusra provider chalayegi.")
                     } else {
@@ -199,5 +225,19 @@ private fun ModelPicker(store: SettingsStore) {
                 }
             }
         }
+    }
+    if (showList && current != BrainChoice.AUTO && current != BrainChoice.OFFLINE) {
+        ModelListDialog(
+            choice = current,
+            title = choiceLabel(current),
+            store = store,
+            current = model,
+            onPick = { picked ->
+                setModel(store, current, picked)
+                testResult = ""
+                showList = false
+            },
+            onDismiss = { showList = false }
+        )
     }
 }
